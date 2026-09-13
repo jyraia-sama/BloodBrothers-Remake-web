@@ -1,9 +1,12 @@
+import { HeroSelectScene } from './scenes/HeroSelectScene.js';
 import { MenuScene } from './scenes/MenuScene.js';
 import { ChapterSelectScene } from './scenes/ChapterSelectScene.js';
 import { MapScene } from './scenes/MapScene.js';
 import { BattleScene } from './scenes/BattleScene.js';
 import { DeckScene } from './scenes/DeckScene.js';
 import { GachaScene } from './scenes/GachaScene.js';
+import { FusionScene } from './scenes/FusionScene.js';
+import { EquipmentScene } from './scenes/EquipmentScene.js';
 
 const config = {
   type: Phaser.AUTO,
@@ -11,10 +14,10 @@ const config = {
   height: 600,
   backgroundColor: '#111116',
   scale: {
-    mode: Phaser.Scale.FIT,            // Adapte la taille du jeu à l'écran
-    autoCenter: Phaser.Scale.CENTER_BOTH // Centre le jeu verticalement et horizontalement
+    mode: Phaser.Scale.FIT,
+    autoCenter: Phaser.Scale.CENTER_BOTH
   },
-  scene: [MenuScene, ChapterSelectScene, DeckScene, GachaScene, MapScene, BattleScene]
+  scene: [MenuScene, HeroSelectScene, ChapterSelectScene, DeckScene, GachaScene, MapScene, BattleScene, FusionScene, EquipmentScene]
 };
 
 new Phaser.Game(config);

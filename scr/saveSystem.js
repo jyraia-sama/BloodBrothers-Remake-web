@@ -1,46 +1,44 @@
-const SAVE_KEY = 'BLOOD_BROTHERS_SAVE_V2';
-const STAMINA_REGEN_INTERVAL = 5 * 60 * 1000;
+export const STAMINA_REGEN_INTERVAL = 300000; // 5 minutes en millisecondes (par exemple)
 
-const DEFAULT_PLAYER_DATA = {
+export const PLAYER_DATA = {
+  hasChosenHero: false,
+  gold: 500,
   stamina: 10,
   maxStamina: 10,
   lastStaminaUpdate: Date.now(),
-  gold: 500,
-  unlockedChapter: 1,
+  inventory: [], // Clés des unités
+  equipmentInventory: ['epee_fer', 'cote_maille', 'anneau_vie'], // Équipements possédés
+  deck: [], // 4 unités max
   currentChapter: 1,
-  currentTileIndex: 0,
-  inventory: ['chevalier', 'archer', 'mage', 'clerc', 'chevalier', 'archer', 'squelette'],
-  deck: ['chevalier', 'archer', 'mage', 'clerc', 'chevalier']
+  currentTile: 0,
+  currentHpState: {} // Stocke les PV des unités en cours de run
 };
 
-export function loadGameData() {
-  const saved = localStorage.getItem(SAVE_KEY);
-  let data = saved ? JSON.parse(saved) : JSON.parse(JSON.stringify(DEFAULT_PLAYER_DATA));
-  
-  const now = Date.now();
-  const timePassed = now - (data.lastStaminaUpdate || now);
-  const staminaToGained = Math.floor(timePassed / STAMINA_REGEN_INTERVAL);
-
-  if (staminaToGained > 0 && data.stamina < data.maxStamina) {
-    data.stamina = Math.min(data.maxStamina, data.stamina + staminaToGained);
-    data.lastStaminaUpdate = now - (timePassed % STAMINA_REGEN_INTERVAL);
-  } else if (data.stamina >= data.maxStamina) {
-    data.lastStaminaUpdate = now;
-  }
-
-  return data;
+export function saveGameData() {
+  localStorage.setItem('blood_brothers_save', JSON.stringify(PLAYER_DATA));
 }
 
-export function saveGameData() {
-  localStorage.setItem(SAVE_KEY, JSON.stringify(PLAYER_DATA));
+export function loadGameData() {
+  const saved = localStorage.getItem('blood_brothers_save');
+  if (saved) {
+    const data = JSON.parse(saved);
+    Object.assign(PLAYER_DATA, data);
+  }
 }
 
 export function resetGameData() {
-  localStorage.removeItem(SAVE_KEY);
-  Object.assign(PLAYER_DATA, JSON.parse(JSON.stringify(DEFAULT_PLAYER_DATA)));
+  localStorage.removeItem('blood_brothers_save');
+  PLAYER_DATA.hasChosenHero = false;
+  PLAYER_DATA.gold = 500;
+  PLAYER_DATA.stamina = 10;
+  PLAYER_DATA.maxStamina = 10;
   PLAYER_DATA.lastStaminaUpdate = Date.now();
-  saveGameData();
+  PLAYER_DATA.inventory = [];
+  PLAYER_DATA.equipmentInventory = ['epee_fer', 'cote_maille', 'anneau_vie'];
+  PLAYER_DATA.deck = [];
+  PLAYER_DATA.currentChapter = 1;
+  PLAYER_DATA.currentTile = 0;
+  PLAYER_DATA.currentHpState = {};
 }
 
-export const PLAYER_DATA = loadGameData();
-export { STAMINA_REGEN_INTERVAL };
+loadGameData();
