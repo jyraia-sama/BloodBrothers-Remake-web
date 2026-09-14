@@ -5,6 +5,7 @@ import { MapScene } from './scenes/MapScene.js';
 import { BattleScene } from './scenes/BattleScene.js';
 import { DeckScene } from './scenes/DeckScene.js';
 import { GachaScene } from './scenes/GachaScene.js';
+import { FusionScene } from './scenes/FusionScene.js'; // <-- Ajout de l'import
 
 const config = {
   type: Phaser.AUTO,
@@ -15,7 +16,7 @@ const config = {
     mode: Phaser.Scale.FIT,
     autoCenter: Phaser.Scale.CENTER_BOTH
   },
-  scene: [MenuScene, HeroSelectScene, ChapterSelectScene, DeckScene, GachaScene, MapScene, BattleScene]
+  scene: [MenuScene, HeroSelectScene, ChapterSelectScene, DeckScene, GachaScene, FusionScene, MapScene, BattleScene] // <-- Ajout dans le tableau
 };
 
 new Phaser.Game(config);

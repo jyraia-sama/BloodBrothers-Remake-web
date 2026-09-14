@@ -17,10 +17,11 @@ export class MenuScene extends Phaser.Scene {
     this.add.rectangle(400, 165, 520, 40, 0x222233).setStrokeStyle(1, 0x555577);
     this.uiText = this.add.text(400, 165, '', { fontSize: '15px', color: '#ffffff' }).setOrigin(0.5);
 
-    this.createButton(400, 230, '🗺️  Aventure (Chapitres)', 0xaa2222, () => this.scene.start('ChapterSelectScene'));
-    this.createButton(400, 300, '🛡️  Gestion du Deck', 0x3355aa, () => this.scene.start('DeckScene'));
-    this.createButton(400, 370, '🔮  Invocations (Pacte)', 0x8800aa, () => this.scene.start('GachaScene'));
-    this.createButton(400, 460, '⚠️  Effacer la partie', 0x552222, () => {
+this.createButton(400, 230, '🗺️  Aventure (Chapitres)', 0xaa2222, () => this.scene.start('ChapterSelectScene'));
+    this.createButton(400, 295, '🛡️  Gestion du Deck', 0x3355aa, () => this.scene.start('DeckScene'));
+    this.createButton(400, 360, '🔮  Invocations (Pacte)', 0x8800aa, () => this.scene.start('GachaScene'));
+    this.createButton(400, 425, '🔥  Autel de Fusion', 0xcc6600, () => this.scene.start('FusionScene')); // <-- Nouveau bouton
+    this.createButton(400, 490, '⚠️  Effacer la partie', 0x552222, () => {
       resetGameData();
       this.scene.start('HeroSelectScene');
     });
