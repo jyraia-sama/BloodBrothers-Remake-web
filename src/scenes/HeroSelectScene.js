@@ -1,5 +1,6 @@
 import { PLAYER_DATA, saveGameData } from '../saveSystem.js';
 import { HEROES_DATABASE } from '../database.js';
+import { createUnitInstance } from '../levelSystem.js';
 
 export class HeroSelectScene extends Phaser.Scene {
   constructor() {
@@ -36,8 +37,19 @@ export class HeroSelectScene extends Phaser.Scene {
   }
 
   selectHero(heroKey) {
-    PLAYER_DATA.inventory.unshift(heroKey);
-    PLAYER_DATA.deck.unshift(heroKey);
+    // Le héros doit être une INSTANCE (avec niveau, XP et fusions propres),
+    // pas une simple clé : sinon il reste invisible dans le deck et en combat.
+    const heroInstance = createUnitInstance(heroKey);
+
+    PLAYER_DATA.inventory.unshift(heroInstance);
+
+    // Le héros prend la première place du deck (les unités de départ restent).
+    // Sécurité : on ne dépasse jamais la limite de 5 cartes.
+    PLAYER_DATA.deck.unshift(heroInstance.instanceId);
+    if (PLAYER_DATA.deck.length > 5) {
+      PLAYER_DATA.deck = PLAYER_DATA.deck.slice(0, 5);
+    }
+
     PLAYER_DATA.hasChosenHero = true;
     saveGameData();
 

@@ -1,5 +1,9 @@
-import { PLAYER_DATA, saveGameData } from '../saveSystem.js';
+import { PLAYER_DATA, saveGameData, getDeckInstances } from '../saveSystem.js';
 import { UNITS_DATABASE, CHAPTERS_DATABASE } from '../database.js';
+import {
+  getInstanceStats, addXP, xpRewardForBattle, MAX_LEVEL,
+  addAccountXP, accountXpRewardForBattle
+} from '../levelSystem.js';
 
 export class BattleScene extends Phaser.Scene {
   constructor() {
@@ -23,7 +27,7 @@ export class BattleScene extends Phaser.Scene {
 
     this.speedBtn = this.add.rectangle(520, 30, 110, 32, 0x333355).setInteractive({ useHandCursor: true }).setStrokeStyle(1, 0xffffff);
     this.speedText = this.add.text(520, 30, '⚡ Vitesse: x1', { fontSize: '12px', color: '#ffffff', fontStyle: 'bold' }).setOrigin(0.5);
-    
+
     this.speedBtn.on('pointerdown', () => {
       if (this.gameSpeed === 1) this.gameSpeed = 2;
       else if (this.gameSpeed === 2) this.gameSpeed = 4;
@@ -42,8 +46,26 @@ export class BattleScene extends Phaser.Scene {
       lineSpacing: 4
     });
 
-    this.playerTeam = PLAYER_DATA.deck.map(unitKey => ({ ...UNITS_DATABASE[unitKey], side: 'player' }));
+    // --- Équipe du joueur : stats calculées depuis les instances (niveau + fusions) ---
+    this.deckInstances = getDeckInstances();
+    this.playerTeam = this.deckInstances.map(instance => {
+      const base = UNITS_DATABASE[instance.unitKey];
+      return {
+        ...getInstanceStats(base, instance),
+        side: 'player',
+        instanceId: instance.instanceId
+      };
+    });
 
+    if (this.playerTeam.length === 0) {
+      this.add.text(300, 300, 'Votre deck est vide !\nÉquipez des unités avant de combattre.', {
+        fontSize: '16px', color: '#ff4444', align: 'center'
+      }).setOrigin(0.5);
+      this.time.delayedCall(2000, () => this.scene.start('DeckScene'));
+      return;
+    }
+
+    // --- Équipe ennemie (les ennemis utilisent leurs stats de base) ---
     if (this.isBossCombat) {
       const minionKey = Phaser.Utils.Array.GetRandom(this.chapter.enemyPool);
       this.enemyTeam = [
@@ -58,8 +80,8 @@ export class BattleScene extends Phaser.Scene {
       }));
     }
 
-    this.renderTeam(this.playerTeam, 80, 450);
-    this.renderTeam(this.enemyTeam, 120, 150);
+    this.renderTeam(this.playerTeam, 80, 450, true);
+    this.renderTeam(this.enemyTeam, 120, 150, false);
 
     this.logText = this.add.text(300, 300, 'Préparation au combat...', { fontSize: '16px', color: '#ffcc00' }).setOrigin(0.5);
     this.addLog('--- Début du combat ---');
@@ -76,13 +98,16 @@ export class BattleScene extends Phaser.Scene {
     this.historyText.setText(this.combatLogs.join('\n'));
   }
 
-  renderTeam(team, startX, startY) {
+  renderTeam(team, startX, startY, showLevel) {
     const spacing = 100;
     team.forEach((unit, index) => {
       const x = startX + index * spacing;
       const card = this.add.rectangle(x, startY, 80, 100, unit.color).setStrokeStyle(2, 0xffffff);
       unit.cardGraphics = card;
-      this.add.text(x, startY - 30, unit.name.split(' ')[0], { fontSize: '11px', color: '#fff' }).setOrigin(0.5);
+      this.add.text(x, startY - 32, unit.name.split(' ')[0], { fontSize: '11px', color: '#fff' }).setOrigin(0.5);
+      if (showLevel && unit.level) {
+        this.add.text(x, startY - 16, `Nv. ${unit.level}`, { fontSize: '10px', color: '#00ffaa' }).setOrigin(0.5);
+      }
       unit.hpText = this.add.text(x, startY + 30, `${unit.hp}/${unit.maxHp}`, { fontSize: '11px', color: '#00ff00' }).setOrigin(0.5);
     });
   }
@@ -198,12 +223,44 @@ export class BattleScene extends Phaser.Scene {
     }
   }
 
+  /** Distribue l'XP aux unités survivantes et gère les montées de niveau. */
+  grantExperience() {
+    const xpGain = xpRewardForBattle(this.chapter, this.isBossCombat);
+    const survivorIds = this.playerTeam.filter(u => u.hp > 0).map(u => u.instanceId);
+
+    this.deckInstances.forEach(instance => {
+      if (!survivorIds.includes(instance.instanceId)) return;
+      if (instance.level >= MAX_LEVEL) return;
+
+      const levelsGained = addXP(instance, xpGain);
+      const baseName = UNITS_DATABASE[instance.unitKey].name;
+
+      if (levelsGained > 0) {
+        this.addLog(`⬆️ ${baseName} passe Nv. ${instance.level} !`);
+      }
+    });
+
+    this.addLog(`⭐ +${xpGain} XP pour les survivants`);
+
+    // --- XP de compte (progression globale, augmente la stamina max) ---
+    const accountGain = accountXpRewardForBattle(this.chapter, this.isBossCombat);
+    const accountLevelsGained = addAccountXP(PLAYER_DATA, accountGain);
+
+    if (accountLevelsGained > 0) {
+      this.addLog(`🎖️ COMPTE Nv. ${PLAYER_DATA.accountLevel} ! Stamina max : ${PLAYER_DATA.maxStamina}`);
+    }
+
+    return xpGain;
+  }
+
   endBattle(playerWon) {
     if (playerWon) {
       const reward = this.isBossCombat ? this.chapter.rewardGold : 50;
       PLAYER_DATA.gold += reward;
 
-      let victoryMsg = `VICTOIRE ! +${reward} Or.`;
+      const xpGain = this.grantExperience();
+
+      let victoryMsg = `VICTOIRE ! +${reward} Or, +${xpGain} XP.`;
 
       if (this.isBossCombat) {
         const isFinalChapter = this.chapter.id >= CHAPTERS_DATABASE.length;
@@ -212,13 +269,13 @@ export class BattleScene extends Phaser.Scene {
         if (wasFrontierChapter && !isFinalChapter) {
           PLAYER_DATA.unlockedChapter += 1;
           PLAYER_DATA.currentChapter = PLAYER_DATA.unlockedChapter;
-          PLAYER_DATA.currentTileIndex = 0;
-          victoryMsg = `VICTOIRE ! Nouveau chapitre débloqué !`;
+          PLAYER_DATA.currentTileId = 0;
+          victoryMsg = `VICTOIRE ! Nouveau chapitre débloqué ! (+${xpGain} XP)`;
         } else if (isFinalChapter) {
-          PLAYER_DATA.currentTileIndex = this.chapter.tiles ? this.chapter.tiles.length - 1 : PLAYER_DATA.currentTileIndex;
-          victoryMsg = `VICTOIRE ! Jeu terminé !`;
+          PLAYER_DATA.currentTileId = this.chapter.tiles.length - 1;
+          victoryMsg = `VICTOIRE ! Jeu terminé ! (+${xpGain} XP)`;
         } else {
-          PLAYER_DATA.currentTileIndex = 0;
+          PLAYER_DATA.currentTileId = 0;
         }
       }
 
@@ -234,7 +291,7 @@ export class BattleScene extends Phaser.Scene {
       this.cameras.main.fadeOut(1000 / this.gameSpeed, 0, 0, 0);
       this.time.delayedCall(1000 / this.gameSpeed, () => {
         if (this.isBossCombat) {
-          this.scene.start('ChapterSelectScene');
+          this.scene.start('ChapterSelectScene', { actId: this.chapter.actId });
         } else {
           this.scene.start('MapScene');
         }

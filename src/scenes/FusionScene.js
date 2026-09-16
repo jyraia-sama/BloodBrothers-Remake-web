@@ -1,5 +1,6 @@
 import { PLAYER_DATA, saveGameData } from '../saveSystem.js';
 import { UNITS_DATABASE } from '../database.js';
+import { getInstanceStats, MAX_LEVEL } from '../levelSystem.js';
 
 export class FusionScene extends Phaser.Scene {
   constructor() {
@@ -9,6 +10,9 @@ export class FusionScene extends Phaser.Scene {
   }
 
   create() {
+    this.selectedPrimary = null;
+    this.selectedSacrifice = null;
+
     this.add.rectangle(400, 300, 800, 600, 0x111622);
     this.add.text(400, 35, 'AUTEL DE FUSION', { fontSize: '26px', color: '#ff8800', fontStyle: 'bold' }).setOrigin(0.5);
 
@@ -28,11 +32,9 @@ export class FusionScene extends Phaser.Scene {
     this.sacrificeSlot = this.add.rectangle(600, 160, 120, 130, 0x222233).setStrokeStyle(2, 0xff4444).setInteractive({ useHandCursor: true });
     this.sacrificeText = this.add.text(600, 160, 'Choisir\n(Cliquer pour\ndésélectionner)', { fontSize: '11px', color: '#888888', align: 'center' }).setOrigin(0.5);
 
-    // Texte d'information sur le bonus et le coût
-    const infoBonusStr = '✨ Effet : L\'unité principale gagne +15% de PV et d\'Attaque\n🪙 Coût : 50 pièces d\'or';
-    this.add.text(400, 245, infoBonusStr, { fontSize: '13px', color: '#00ffff', align: 'center', lineSpacing: 4 }).setOrigin(0.5);
+    const infoBonusStr = '✨ Effet : L\'unité principale gagne +15% de PV et d\'Attaque (cumulable)\n🪙 Coût : 50 pièces d\'or  |  Les unités équipées ne peuvent pas être fusionnées';
+    this.add.text(400, 245, infoBonusStr, { fontSize: '12px', color: '#00ffff', align: 'center', lineSpacing: 4 }).setOrigin(0.5);
 
-    // Bouton de validation de la fusion
     this.fuseBtn = this.add.rectangle(400, 305, 200, 45, 0x555555).setStrokeStyle(2, 0x888888);
     this.fuseBtnText = this.add.text(400, 305, 'FUSIONNER (50 Or)', { fontSize: '15px', color: '#aaaaaa', fontStyle: 'bold' }).setOrigin(0.5);
 
@@ -40,7 +42,6 @@ export class FusionScene extends Phaser.Scene {
 
     this.add.text(400, 385, 'INVENTAIRE DISPONIBLE', { fontSize: '14px', color: '#ffffff', fontStyle: 'bold' }).setOrigin(0.5);
 
-    // Gestion du clic pour désélectionner directement via les emplacements du haut
     this.primarySlot.on('pointerdown', () => {
       if (this.selectedPrimary) {
         this.selectedPrimary = null;
@@ -70,52 +71,65 @@ export class FusionScene extends Phaser.Scene {
     if (this.inventoryContainer) this.inventoryContainer.destroy();
     this.inventoryContainer = this.add.container(0, 0);
 
-    PLAYER_DATA.inventory.forEach((unitKey, index) => {
-      // Masquer les cartes déjà sélectionnées dans l'inventaire pour éviter les doublons d'interaction
-      const isSelected = (this.selectedPrimary && this.selectedPrimary.index === index) || 
-                         (this.selectedSacrifice && this.selectedSacrifice.index === index);
+    // Seules les unités non équipées sont fusionnables
+    const fusable = PLAYER_DATA.inventory.filter(inst => !PLAYER_DATA.deck.includes(inst.instanceId));
+
+    fusable.forEach((instance, displayIndex) => {
+      const isSelected =
+        (this.selectedPrimary && this.selectedPrimary.instanceId === instance.instanceId) ||
+        (this.selectedSacrifice && this.selectedSacrifice.instanceId === instance.instanceId);
       if (isSelected) return;
 
-      const unit = UNITS_DATABASE[unitKey];
-      const x = 80 + (index % 8) * 95;
-      const y = 445 + Math.floor(index / 8) * 85;
+      const base = UNITS_DATABASE[instance.unitKey];
+      if (!base) return;
 
-      const card = this.add.rectangle(x, y, 80, 75, unit.color).setStrokeStyle(1, 0xaaaaaa).setInteractive({ useHandCursor: true });
-      const nameText = this.add.text(x, y - 18, unit.name.split(' ')[0], { fontSize: '10px', color: '#fff' }).setOrigin(0.5);
-      const rarityText = this.add.text(x, y + 18, `[${unit.rarity}]`, { fontSize: '10px', color: '#ffdd00' }).setOrigin(0.5);
+      const x = 80 + (displayIndex % 8) * 95;
+      const y = 445 + Math.floor(displayIndex / 8) * 85;
+
+      const card = this.add.rectangle(x, y, 80, 75, base.color).setStrokeStyle(1, 0xaaaaaa).setInteractive({ useHandCursor: true });
+      const nameText = this.add.text(x, y - 22, base.name.split(' ')[0], { fontSize: '10px', color: '#fff' }).setOrigin(0.5);
+      const lvlText = this.add.text(x, y - 4, `Nv. ${instance.level}`, { fontSize: '10px', color: '#00ffaa' }).setOrigin(0.5);
+      const rarityText = this.add.text(x, y + 20, `[${base.rarity}]`, { fontSize: '10px', color: '#ffdd00' }).setOrigin(0.5);
 
       card.on('pointerdown', () => {
-        this.selectUnitForFusion(unitKey, index);
+        this.selectUnitForFusion(instance);
       });
 
-      this.inventoryContainer.add([card, nameText, rarityText]);
+      this.inventoryContainer.add([card, nameText, lvlText, rarityText]);
     });
+
+    if (fusable.length === 0) {
+      this.inventoryContainer.add(
+        this.add.text(400, 450, 'Aucune unité disponible (toutes vos cartes sont équipées).', { fontSize: '13px', color: '#888888' }).setOrigin(0.5)
+      );
+    }
   }
 
-  selectUnitForFusion(unitKey, invIndex) {
-    const unit = UNITS_DATABASE[unitKey];
+  selectUnitForFusion(instance) {
+    const base = UNITS_DATABASE[instance.unitKey];
 
     if (!this.selectedPrimary) {
-      this.selectedPrimary = { key: unitKey, data: unit, index: invIndex };
-      this.primaryText.setText(`${unit.name}\n(+15% Stats)`).setColor('#ffffff');
-      this.primarySlot.setFillStyle(unit.color);
-      this.logText.setText('Sélectionnez l\'unité à sacrifier.');
+      this.selectedPrimary = instance;
+      this.primaryText.setText(`${base.name}\nNv. ${instance.level}\n(+15% Stats)`).setColor('#ffffff');
+      this.primarySlot.setFillStyle(base.color);
+      this.logText.setText('Sélectionnez l\'unité à sacrifier.').setColor('#ffcc00');
       this.renderInventoryPicker();
-    } else if (!this.selectedSacrifice && invIndex !== this.selectedPrimary.index) {
-      if (unit.rarity !== this.selectedPrimary.data.rarity) {
+    } else if (!this.selectedSacrifice && instance.instanceId !== this.selectedPrimary.instanceId) {
+      const primaryBase = UNITS_DATABASE[this.selectedPrimary.unitKey];
+
+      if (base.rarity !== primaryBase.rarity) {
         this.logText.setText('Erreur : Les unités doivent être de la même rareté !').setColor('#ff4444');
         return;
       }
-      this.selectedSacrifice = { key: unitKey, data: unit, index: invIndex };
-      this.sacrificeText.setText(`${unit.name}`).setColor('#ffffff');
-      this.sacrificeSlot.setFillStyle(unit.color);
-      
-      // Activer le bouton de fusion
+
+      this.selectedSacrifice = instance;
+      this.sacrificeText.setText(`${base.name}\nNv. ${instance.level}`).setColor('#ffffff');
+      this.sacrificeSlot.setFillStyle(base.color);
+
       this.fuseBtn.setFillStyle(0xff8800).setInteractive({ useHandCursor: true });
       this.fuseBtnText.setText('FUSIONNER (50 Or)').setColor('#ffffff');
       this.logText.setText('Prêt pour la fusion !').setColor('#00ff00');
 
-      // Supprimer l'écouteur précédent pour éviter les doublons d'appels, puis ajouter le nouveau
       this.fuseBtn.removeAllListeners('pointerdown');
       this.fuseBtn.on('pointerdown', () => this.executeFusion());
 
@@ -138,24 +152,33 @@ export class FusionScene extends Phaser.Scene {
 
     PLAYER_DATA.gold -= 50;
 
-    // Amélioration de l'unité principale (+15% d'attaque et PV max)
-    const primaryUnit = this.selectedPrimary.data;
-    primaryUnit.atk = Math.floor(primaryUnit.atk * 1.15);
-    primaryUnit.maxHp = Math.floor(primaryUnit.maxHp * 1.15);
-    primaryUnit.hp = primaryUnit.maxHp;
+    // Le bonus est stocké sur l'INSTANCE (persistant, individuel),
+    // et non plus sur la base de données partagée.
+    const primary = PLAYER_DATA.inventory.find(i => i.instanceId === this.selectedPrimary.instanceId);
+    if (primary) {
+      primary.fusionCount = (primary.fusionCount || 0) + 1;
 
-    // Suppression sécurisée des index de l'inventaire par ordre décroissant
-    const indicesToRemove = [this.selectedPrimary.index, this.selectedSacrifice.index].sort((a, b) => b - a);
-    indicesToRemove.forEach(idx => {
-      PLAYER_DATA.inventory.splice(idx, 1);
-    });
+      // Bonus secondaire : l'unité sacrifiée transmet une partie de son XP
+      const sacrificedLevel = this.selectedSacrifice.level || 1;
+      if (primary.level < MAX_LEVEL) {
+        primary.xp += Math.round(30 * sacrificedLevel);
+      }
+    }
 
-    // Ré-injection de l'unité principale améliorée
-    PLAYER_DATA.inventory.push(this.selectedPrimary.key);
+    // Retrait de l'unité sacrifiée de l'inventaire
+    const sacIndex = PLAYER_DATA.inventory.findIndex(i => i.instanceId === this.selectedSacrifice.instanceId);
+    if (sacIndex !== -1) {
+      PLAYER_DATA.inventory.splice(sacIndex, 1);
+    }
+
+    // Sécurité : si l'unité sacrifiée était dans le deck, on l'en retire
+    PLAYER_DATA.deck = PLAYER_DATA.deck.filter(id => id !== this.selectedSacrifice.instanceId);
 
     saveGameData();
 
-    this.logText.setText('✨ FUSION RÉUSSIE ! Stats augmentées (-50 Or).').setColor('#00ff00');
+    const newStats = primary ? getInstanceStats(UNITS_DATABASE[primary.unitKey], primary) : null;
+    const statsStr = newStats ? ` (ATK ${newStats.atk} / PV ${newStats.maxHp})` : '';
+    this.logText.setText(`✨ FUSION RÉUSSIE !${statsStr}`).setColor('#00ff00');
 
     this.time.delayedCall(1500, () => {
       this.scene.restart();

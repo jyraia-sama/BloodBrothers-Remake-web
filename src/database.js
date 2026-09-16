@@ -16,56 +16,166 @@ export const UNITS_DATABASE = {
   ...SUMMON_POOL_DATABASE
 };
 
-export const CHAPTERS_DATABASE = [
+// ============================================================
+//  ACTES & CHAPITRES
+// ============================================================
+
+const ACTS_CONFIG = [
   {
     id: 1,
-    title: 'Chapitre 1 : La Forêt Sombre',
+    title: 'Acte I : La Forêt Sombre',
     bgColor: 0x112211,
     enemyPool: ['squelette'],
     bossUnit: 'boss',
-    rewardGold: 100,
-    tiles: [
-      { id: 0, type: 'start', label: 'Départ', color: 0x333344 },
-      { id: 1, type: 'gold', label: 'Trésor', color: 0xddaa00 },
-      { id: 2, type: 'battle', label: 'Ennemi', color: 0xaa2222 },
-      { id: 3, type: 'heal', label: 'Fontaine', color: 0x22aa22 },
-      { id: 4, type: 'battle', label: 'Ennemi', color: 0xaa2222 },
-      { id: 5, type: 'boss', label: 'BOSS', color: 0x8800aa }
-    ]
+    baseGold: 100,   // récompense du chapitre 1 de cet acte
+    goldStep: 40      // augmentation par chapitre dans l'acte
   },
   {
     id: 2,
-    title: 'Chapitre 2 : Le Donjon Maudit',
+    title: 'Acte II : Le Donjon Maudit',
     bgColor: 0x221122,
     enemyPool: ['squelette', 'demon_inf'],
     bossUnit: 'boss',
-    rewardGold: 250,
-    tiles: [
-      { id: 0, type: 'start', label: 'Départ', color: 0x333344 },
-      { id: 1, type: 'battle', label: 'Ennemi', color: 0xaa2222 },
-      { id: 2, type: 'gold', label: 'Coffre', color: 0xddaa00 },
-      { id: 3, type: 'battle', label: 'Ennemi', color: 0xaa2222 },
-      { id: 4, type: 'heal', label: 'Fontaine', color: 0x22aa22 },
-      { id: 5, type: 'battle', label: 'Élite', color: 0xaa2222 },
-      { id: 6, type: 'boss', label: 'BOSS', color: 0x8800aa }
-    ]
+    baseGold: 450,
+    goldStep: 90
   },
   {
     id: 3,
-    title: 'Chapitre 3 : Le Cratère Volcanique',
+    title: 'Acte III : Le Cratère Volcanique',
     bgColor: 0x331111,
     enemyPool: ['demon_inf'],
     bossUnit: 'boss',
-    rewardGold: 500,
-    tiles: [
-      { id: 0, type: 'start', label: 'Départ', color: 0x333344 },
-      { id: 1, type: 'battle', label: 'Ennemi', color: 0xaa2222 },
-      { id: 2, type: 'battle', label: 'Ennemi', color: 0xaa2222 },
-      { id: 3, type: 'gold', label: 'Trésor', color: 0xddaa00 },
-      { id: 4, type: 'battle', label: 'Garde', color: 0xaa2222 },
-      { id: 5, type: 'heal', label: 'Fontaine', color: 0x22aa22 },
-      { id: 6, type: 'battle', label: 'Élite', color: 0xaa2222 },
-      { id: 7, type: 'boss', label: 'BOSS', color: 0x8800aa }
-    ]
+    baseGold: 1100,
+    goldStep: 180
   }
 ];
+
+const CHAPTERS_PER_ACT = 8;
+const BRANCH_START_CHAPTER = 4; // à partir de ce chapitre (dans chaque acte), embranchements
+
+const GOLD_TILE = { type: 'gold', label: 'Trésor', color: 0xddaa00 };
+const HEAL_TILE = { type: 'heal', label: 'Fontaine', color: 0x22aa22 };
+const BATTLE_TILE = (label = 'Ennemi') => ({ type: 'battle', label, color: 0xaa2222 });
+const BOSS_TILE = { type: 'boss', label: 'BOSS', color: 0x8800aa };
+const START_TILE = { type: 'start', label: 'Départ', color: 0x333344 };
+
+/**
+ * Génère les cases (tiles) d'un chapitre sous forme de graphe.
+ * - col : position horizontale (étape sur le chemin)
+ * - row : décalage vertical (-1 voie du haut, 0 voie centrale, 1 voie du bas)
+ * - next : id(s) des cases suivantes accessibles depuis cette case
+ */
+function buildTiles(chapterNum) {
+  let id = 0;
+  const tiles = [];
+
+  const addTile = (base, col, row = 0) => {
+    const tile = { id: id++, col, row, next: [], ...base };
+    tiles.push(tile);
+    return tile;
+  };
+  const link = (a, b) => a.next.push(b.id);
+
+  if (chapterNum < BRANCH_START_CHAPTER) {
+    // ---- Chemin linéaire, longueur croissante ----
+    const start = addTile(START_TILE, 0);
+    let prev = start;
+    let col = 1;
+
+    const middleTiles = [];
+    if (chapterNum === 1) middleTiles.push(GOLD_TILE, BATTLE_TILE(), HEAL_TILE, BATTLE_TILE());
+    if (chapterNum === 2) middleTiles.push(BATTLE_TILE(), GOLD_TILE, BATTLE_TILE(), HEAL_TILE, BATTLE_TILE('Élite'));
+    if (chapterNum === 3) middleTiles.push(BATTLE_TILE(), BATTLE_TILE(), GOLD_TILE, BATTLE_TILE('Garde'), HEAL_TILE, BATTLE_TILE('Élite'));
+
+    middleTiles.forEach(base => {
+      const t = addTile(base, col);
+      link(prev, t);
+      prev = t;
+      col++;
+    });
+
+    const boss = addTile(BOSS_TILE, col);
+    link(prev, boss);
+  } else {
+    // ---- Chemin avec embranchement qui se rejoint avant le BOSS ----
+    const start = addTile(START_TILE, 0);
+    let prev = start;
+    let col = 1;
+
+    // Introduction avant la fourche (grandit avec la difficulté)
+    const introCount = chapterNum >= 6 ? 2 : 1;
+    for (let i = 0; i < introCount; i++) {
+      const t = addTile(BATTLE_TILE(), col);
+      link(prev, t);
+      prev = t;
+      col++;
+    }
+
+    const forkPoint = prev;
+
+    // Longueur des branches : 2 à 4 cases selon le chapitre
+    const branchLength = Math.min(4, 2 + Math.floor((chapterNum - BRANCH_START_CHAPTER) / 2));
+    const branchCol0 = col;
+
+    let topPrev = forkPoint;
+    let botPrev = forkPoint;
+
+    for (let i = 0; i < branchLength; i++) {
+      const isLast = i === branchLength - 1;
+      const topBase = i === 0 ? GOLD_TILE : (isLast ? BATTLE_TILE('Élite') : BATTLE_TILE());
+      const botBase = i === 0 ? BATTLE_TILE() : (isLast ? BATTLE_TILE('Élite') : (i % 2 === 0 ? GOLD_TILE : BATTLE_TILE()));
+
+      const topTile = addTile(topBase, branchCol0 + i, -1);
+      const botTile = addTile(botBase, branchCol0 + i, 1);
+
+      link(topPrev, topTile);
+      link(botPrev, botTile);
+
+      topPrev = topTile;
+      botPrev = botTile;
+    }
+
+    col = branchCol0 + branchLength;
+
+    // Case de fusion : les deux voies se rejoignent
+    const merge = addTile(HEAL_TILE, col, 0);
+    link(topPrev, merge);
+    link(botPrev, merge);
+    col++;
+    prev = merge;
+
+    // Garde supplémentaire pour les derniers chapitres (encore plus dur)
+    if (chapterNum >= 7) {
+      const guard = addTile(BATTLE_TILE('Garde'), col, 0);
+      link(prev, guard);
+      prev = guard;
+      col++;
+    }
+
+    const boss = addTile(BOSS_TILE, col, 0);
+    link(prev, boss);
+  }
+
+  return tiles;
+}
+
+export const ACTS_DATABASE = ACTS_CONFIG.map(act => ({
+  ...act,
+  chapters: Array.from({ length: CHAPTERS_PER_ACT }, (_, i) => {
+    const chapterNum = i + 1;
+    return {
+      id: (act.id - 1) * CHAPTERS_PER_ACT + chapterNum, // id global unique : 1 à 24
+      actId: act.id,
+      chapterNum,
+      title: `${act.title} – Chapitre ${chapterNum}`,
+      bgColor: act.bgColor,
+      enemyPool: act.enemyPool,
+      bossUnit: act.bossUnit,
+      rewardGold: act.baseGold + act.goldStep * (chapterNum - 1),
+      tiles: buildTiles(chapterNum)
+    };
+  })
+}));
+
+// Liste à plat de tous les chapitres (recherche directe par id global)
+export const CHAPTERS_DATABASE = ACTS_DATABASE.flatMap(act => act.chapters);
