@@ -264,10 +264,10 @@ export class BattleScene extends Phaser.Scene {
 
       if (this.isBossCombat) {
         const isFinalChapter = this.chapter.id >= CHAPTERS_DATABASE.length;
-        const wasFrontierChapter = this.chapter.id === PLAYER_DATA.unlockedChapter;
+        const reachedOrPastFrontier = this.chapter.id >= PLAYER_DATA.unlockedChapter;
 
-        if (wasFrontierChapter && !isFinalChapter) {
-          PLAYER_DATA.unlockedChapter += 1;
+        if (reachedOrPastFrontier && !isFinalChapter) {
+          PLAYER_DATA.unlockedChapter = Math.max(PLAYER_DATA.unlockedChapter, this.chapter.id + 1);
           PLAYER_DATA.currentChapter = PLAYER_DATA.unlockedChapter;
           PLAYER_DATA.currentTileId = 0;
           victoryMsg = `VICTOIRE ! Nouveau chapitre débloqué ! (+${xpGain} XP)`;

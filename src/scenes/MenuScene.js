@@ -7,6 +7,7 @@ import {
 
 import { CHANGELOG_DATA } from './ChangelogData.js';
 import { getAccountProgress, accountXpForNextLevel, MAX_ACCOUNT_LEVEL } from '../levelSystem.js';
+import { makeScrollable } from '../scrollHelper.js';
 
 export class MenuScene extends Phaser.Scene {
 
@@ -312,6 +313,10 @@ export class MenuScene extends Phaser.Scene {
   }
 
   showChangelogModal() {
+    if (this.changelogScroll) {
+      this.changelogScroll.destroy();
+      this.changelogScroll = null;
+    }
     if (this.modalContainer) {
       this.modalContainer.destroy();
     }
@@ -330,6 +335,20 @@ export class MenuScene extends Phaser.Scene {
       fontStyle: 'bold'
     }).setOrigin(0.5);
 
+    // --- Bouton de retour, en haut à droite du panneau ---
+    const closeBtn = this.add.circle(652, 82, 17, 0x252a38).setInteractive({ useHandCursor: true }).setStrokeStyle(1, 0x9da3b0);
+    const closeIcon = this.add.text(652, 82, '✕', { fontSize: '15px', color: '#ffffff', fontStyle: 'bold' }).setOrigin(0.5);
+
+    closeBtn.on('pointerover', () => {
+      closeBtn.setFillStyle(0x3a4052);
+      closeBtn.setStrokeStyle(1, 0xffffff);
+    });
+    closeBtn.on('pointerout', () => {
+      closeBtn.setFillStyle(0x252a38);
+      closeBtn.setStrokeStyle(1, 0x9da3b0);
+    });
+
+    // --- Contenu déroulant ---
     let changelogTextContent = "";
     CHANGELOG_DATA.forEach((entry, i) => {
       changelogTextContent += `📅 ${entry.date}\n`;
@@ -341,34 +360,24 @@ export class MenuScene extends Phaser.Scene {
       }
     });
 
-    const contentText = this.add.text(160, 115, changelogTextContent, {
+    const scrollContainer = this.add.container(0, 0);
+    const contentText = this.add.text(170, 140, changelogTextContent, {
       fontSize: '12px',
       color: '#cccccc',
       lineSpacing: 4,
-      wordWrap: { width: 480 }
+      wordWrap: { width: 460 }
     });
+    scrollContainer.add(contentText);
 
-    const closeBtn = this.add.rectangle(400, 490, 170, 38, 0x252a38)
-      .setInteractive({ useHandCursor: true })
-      .setStrokeStyle(1, 0x9da3b0);
-
-    const closeText = this.add.text(400, 490, '‹  RETOUR AU MENU', {
-      fontSize: '12px',
-      color: '#ffffff',
-      fontStyle: 'bold'
-    }).setOrigin(0.5);
-
-    closeBtn.on('pointerover', () => {
-      closeBtn.setFillStyle(0x3a4052);
-      closeBtn.setStrokeStyle(1, 0xffffff);
-    });
-
-    closeBtn.on('pointerout', () => {
-      closeBtn.setFillStyle(0x252a38);
-      closeBtn.setStrokeStyle(1, 0x9da3b0);
-    });
+    const viewport = { x: 400, y: 315, width: 480, height: 370 };
+    const contentHeight = contentText.height + 20;
+    this.changelogScroll = makeScrollable(this, scrollContainer, viewport, contentHeight);
 
     const closeModal = () => {
+      if (this.changelogScroll) {
+        this.changelogScroll.destroy();
+        this.changelogScroll = null;
+      }
       if (this.modalContainer) {
         this.modalContainer.destroy();
         this.modalContainer = null;
@@ -378,7 +387,7 @@ export class MenuScene extends Phaser.Scene {
     closeBtn.on('pointerdown', closeModal);
     overlay.on('pointerdown', closeModal);
 
-    this.modalContainer.add([overlay, panel, title, contentText, closeBtn, closeText]);
+    this.modalContainer.add([overlay, panel, title, closeBtn, closeIcon, scrollContainer]);
   }
 
   updateStaminaTimer() {

@@ -192,6 +192,55 @@ export function accountXpRewardForBattle(chapter, isBoss) {
 }
 
 /**
+ * Prix de vente d'une carte selon sa rareté (à l'Autel de Fusion
+ * on préfère fusionner, mais une carte non équipée peut aussi être
+ * revendue directement depuis la Gestion du Deck).
+ */
+export const SELL_PRICE_BY_RARITY = {
+  N: 20,
+  R: 60,
+  SR: 150,
+  SSR: 400
+};
+
+export function getSellPrice(baseUnit) {
+  return SELL_PRICE_BY_RARITY[baseUnit.rarity] || 20;
+}
+
+/**
+ * Description lisible d'un sort (nom, chance, effet), utilisée
+ * pour les bulles d'info au survol.
+ */
+export function describeSkill(skill) {
+  if (!skill) return 'Aucune compétence.';
+
+  const chance = Math.round(skill.chance * 100);
+  let effect = '';
+
+  switch (skill.type) {
+    case 'damage_single':
+      effect = `Inflige ${skill.multiplier}x ATK à une cible.`;
+      break;
+    case 'damage_aoe':
+      effect = `Inflige ${skill.multiplier}x ATK à toute l'équipe adverse.`;
+      break;
+    case 'heal_team':
+      effect = `Soigne toute l'équipe de ${skill.power} PV.`;
+      break;
+    case 'heal_lowest':
+      effect = `Soigne l'allié le plus faible de ${skill.power} PV.`;
+      break;
+    case 'buff_atk':
+      effect = `Augmente l'ATK de l'équipe de ${skill.amount}.`;
+      break;
+    default:
+      effect = '';
+  }
+
+  return `${skill.name}\n${chance}% de déclenchement\n${effect}`;
+}
+
+/**
  * XP gagnée par unité survivante après une victoire.
  * Les combats de boss et les chapitres avancés rapportent davantage.
  */

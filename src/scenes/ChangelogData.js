@@ -1,5 +1,18 @@
 export const CHANGELOG_DATA = [
   {
+    date: "17/09/2026",
+    points: [
+      "Gestion du Deck : la réserve/inventaire défile désormais (molette ou flèches) lorsqu'elle dépasse l'écran.",
+      "Gestion du Deck : possibilité de vendre une carte non équipée contre de l'or (prix selon la rareté).",
+      "Ajout d'une bulle d'info sur le sort d'une carte, dans la fenêtre de détails.",
+      "Autel de Fusion : les héros de l'équipe peuvent désormais être choisis comme unité Principale (jamais comme Sacrifice).",
+      "Combat impossible à engager si l'équipe (deck) est vide, avec message d'avertissement.",
+      "Notes de mise à jour : contenu déroulant et bouton de retour déplacé en haut à droite.",
+      "Correction : le retrait d'une carte de l'équipe équipée ne fonctionnait plus.",
+      "Correction : le déverrouillage de chapitre est désormais robuste à un éventuel décalage de progression (Actes 2 et 3 inclus)."
+    ]
+  },
+  {
     date: "16/09/2026",
     points: [
       "Aventure : passage à 3 Actes de 8 chapitres chacun, avec difficulté progressive.",

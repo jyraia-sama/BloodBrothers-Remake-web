@@ -189,6 +189,11 @@ export class MapScene extends Phaser.Scene {
       this.updateUI();
       this.renderActionButtons();
     } else if (tile.type === 'battle' || tile.type === 'boss') {
+      if (PLAYER_DATA.deck.length === 0) {
+        this.logText.setText('⚠️ Deck vide ! Équipez des unités avant de combattre.').setColor('#ff4444');
+        this.renderActionButtons();
+        return;
+      }
       this.logText.setText('Combat enclenché !').setColor('#ff4444');
       this.actionContainer.removeAll(true);
       this.time.delayedCall(800, () => {

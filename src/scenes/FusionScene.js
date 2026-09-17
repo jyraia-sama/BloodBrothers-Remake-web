@@ -1,6 +1,6 @@
 import { PLAYER_DATA, saveGameData } from '../saveSystem.js';
 import { UNITS_DATABASE } from '../database.js';
-import { getInstanceStats, MAX_LEVEL } from '../levelSystem.js';
+import { getInstanceStats } from '../levelSystem.js';
 
 export class FusionScene extends Phaser.Scene {
   constructor() {
@@ -25,14 +25,13 @@ export class FusionScene extends Phaser.Scene {
     this.add.text(200, 85, 'Unité Principale (Conservée)', { fontSize: '13px', color: '#00ff00', fontStyle: 'bold' }).setOrigin(0.5);
     this.add.text(600, 85, 'Unité à Sacrifier (Perdue)', { fontSize: '13px', color: '#ff4444', fontStyle: 'bold' }).setOrigin(0.5);
 
-    // Emplacements pour la fusion
     this.primarySlot = this.add.rectangle(200, 160, 120, 130, 0x222233).setStrokeStyle(2, 0x00ff00).setInteractive({ useHandCursor: true });
     this.primaryText = this.add.text(200, 160, 'Choisir\n(Cliquer pour\ndésélectionner)', { fontSize: '11px', color: '#888888', align: 'center' }).setOrigin(0.5);
 
     this.sacrificeSlot = this.add.rectangle(600, 160, 120, 130, 0x222233).setStrokeStyle(2, 0xff4444).setInteractive({ useHandCursor: true });
     this.sacrificeText = this.add.text(600, 160, 'Choisir\n(Cliquer pour\ndésélectionner)', { fontSize: '11px', color: '#888888', align: 'center' }).setOrigin(0.5);
 
-    const infoBonusStr = '✨ Effet : L\'unité principale gagne +15% de PV et d\'Attaque (cumulable)\n🪙 Coût : 50 pièces d\'or  |  Les unités équipées ne peuvent pas être fusionnées';
+    const infoBonusStr = '✨ Effet : L\'unité principale gagne +15% de PV et d\'Attaque (cumulable)\n🪙 Coût : 50 or  |  Les héros de l\'équipe peuvent être conservés, jamais sacrifiés';
     this.add.text(400, 245, infoBonusStr, { fontSize: '12px', color: '#00ffff', align: 'center', lineSpacing: 4 }).setOrigin(0.5);
 
     this.fuseBtn = this.add.rectangle(400, 305, 200, 45, 0x555555).setStrokeStyle(2, 0x888888);
@@ -67,56 +66,79 @@ export class FusionScene extends Phaser.Scene {
     this.renderInventoryPicker();
   }
 
+  /**
+   * Unités candidates pour l'emplacement en cours de sélection :
+   * - Principale : toute unité possédée, y compris celles de l'équipe (deck).
+   * - Sacrifice : uniquement les unités NON équipées (jamais un héros du deck).
+   */
+  getCandidates() {
+    if (!this.selectedPrimary) {
+      return PLAYER_DATA.inventory;
+    }
+    return PLAYER_DATA.inventory.filter(inst => !PLAYER_DATA.deck.includes(inst.instanceId));
+  }
+
   renderInventoryPicker() {
     if (this.inventoryContainer) this.inventoryContainer.destroy();
     this.inventoryContainer = this.add.container(0, 0);
 
-    // Seules les unités non équipées sont fusionnables
-    const fusable = PLAYER_DATA.inventory.filter(inst => !PLAYER_DATA.deck.includes(inst.instanceId));
-
-    fusable.forEach((instance, displayIndex) => {
+    const candidates = this.getCandidates().filter(inst => {
       const isSelected =
-        (this.selectedPrimary && this.selectedPrimary.instanceId === instance.instanceId) ||
-        (this.selectedSacrifice && this.selectedSacrifice.instanceId === instance.instanceId);
-      if (isSelected) return;
+        (this.selectedPrimary && this.selectedPrimary.instanceId === inst.instanceId) ||
+        (this.selectedSacrifice && this.selectedSacrifice.instanceId === inst.instanceId);
+      return !isSelected;
+    });
 
+    candidates.forEach((instance, displayIndex) => {
       const base = UNITS_DATABASE[instance.unitKey];
       if (!base) return;
 
+      const isEquipped = PLAYER_DATA.deck.includes(instance.instanceId);
       const x = 80 + (displayIndex % 8) * 95;
       const y = 445 + Math.floor(displayIndex / 8) * 85;
 
-      const card = this.add.rectangle(x, y, 80, 75, base.color).setStrokeStyle(1, 0xaaaaaa).setInteractive({ useHandCursor: true });
+      const card = this.add.rectangle(x, y, 80, 75, base.color)
+        .setStrokeStyle(1, isEquipped ? 0x00ff88 : 0xaaaaaa)
+        .setInteractive({ useHandCursor: true });
       const nameText = this.add.text(x, y - 22, base.name.split(' ')[0], { fontSize: '10px', color: '#fff' }).setOrigin(0.5);
       const lvlText = this.add.text(x, y - 4, `Nv. ${instance.level}`, { fontSize: '10px', color: '#00ffaa' }).setOrigin(0.5);
-      const rarityText = this.add.text(x, y + 20, `[${base.rarity}]`, { fontSize: '10px', color: '#ffdd00' }).setOrigin(0.5);
+      const tagText = this.add.text(x, y + 20, isEquipped ? '★ Équipe' : `[${base.rarity}]`, {
+        fontSize: '10px', color: isEquipped ? '#00ff88' : '#ffdd00'
+      }).setOrigin(0.5);
 
-      card.on('pointerdown', () => {
-        this.selectUnitForFusion(instance);
-      });
+      card.on('pointerdown', () => this.selectUnitForFusion(instance));
 
-      this.inventoryContainer.add([card, nameText, lvlText, rarityText]);
+      this.inventoryContainer.add([card, nameText, lvlText, tagText]);
     });
 
-    if (fusable.length === 0) {
+    if (candidates.length === 0) {
+      const msg = !this.selectedPrimary
+        ? 'Aucune unité disponible.'
+        : 'Aucune unité en réserve disponible pour le sacrifice.';
       this.inventoryContainer.add(
-        this.add.text(400, 450, 'Aucune unité disponible (toutes vos cartes sont équipées).', { fontSize: '13px', color: '#888888' }).setOrigin(0.5)
+        this.add.text(400, 480, msg, { fontSize: '13px', color: '#888888' }).setOrigin(0.5)
       );
     }
   }
 
   selectUnitForFusion(instance) {
     const base = UNITS_DATABASE[instance.unitKey];
+    const isEquipped = PLAYER_DATA.deck.includes(instance.instanceId);
 
     if (!this.selectedPrimary) {
       this.selectedPrimary = instance;
-      this.primaryText.setText(`${base.name}\nNv. ${instance.level}\n(+15% Stats)`).setColor('#ffffff');
+      const tag = isEquipped ? ' (Équipe)' : '';
+      this.primaryText.setText(`${base.name}${tag}\nNv. ${instance.level}\n(+15% Stats)`).setColor('#ffffff');
       this.primarySlot.setFillStyle(base.color);
-      this.logText.setText('Sélectionnez l\'unité à sacrifier.').setColor('#ffcc00');
+      this.logText.setText('Sélectionnez l\'unité à sacrifier (hors équipe).').setColor('#ffcc00');
       this.renderInventoryPicker();
     } else if (!this.selectedSacrifice && instance.instanceId !== this.selectedPrimary.instanceId) {
-      const primaryBase = UNITS_DATABASE[this.selectedPrimary.unitKey];
+      if (isEquipped) {
+        this.logText.setText('Erreur : une unité équipée ne peut pas être sacrifiée !').setColor('#ff4444');
+        return;
+      }
 
+      const primaryBase = UNITS_DATABASE[this.selectedPrimary.unitKey];
       if (base.rarity !== primaryBase.rarity) {
         this.logText.setText('Erreur : Les unités doivent être de la même rareté !').setColor('#ff4444');
         return;
@@ -150,28 +172,28 @@ export class FusionScene extends Phaser.Scene {
       return;
     }
 
+    // Sécurité ultime : jamais sacrifier une unité équipée, même si l'état a changé entre-temps
+    if (PLAYER_DATA.deck.includes(this.selectedSacrifice.instanceId)) {
+      this.logText.setText('Erreur : cette unité est équipée, fusion annulée.').setColor('#ff4444');
+      this.selectedSacrifice = null;
+      this.sacrificeText.setText('Choisir\n(Cliquer pour\ndésélectionner)').setColor('#888888');
+      this.sacrificeSlot.setFillStyle(0x222233);
+      this.lockFuseButton();
+      this.renderInventoryPicker();
+      return;
+    }
+
     PLAYER_DATA.gold -= 50;
 
-    // Le bonus est stocké sur l'INSTANCE (persistant, individuel),
-    // et non plus sur la base de données partagée.
     const primary = PLAYER_DATA.inventory.find(i => i.instanceId === this.selectedPrimary.instanceId);
     if (primary) {
       primary.fusionCount = (primary.fusionCount || 0) + 1;
-
-      // Bonus secondaire : l'unité sacrifiée transmet une partie de son XP
-      const sacrificedLevel = this.selectedSacrifice.level || 1;
-      if (primary.level < MAX_LEVEL) {
-        primary.xp += Math.round(30 * sacrificedLevel);
-      }
     }
 
-    // Retrait de l'unité sacrifiée de l'inventaire
     const sacIndex = PLAYER_DATA.inventory.findIndex(i => i.instanceId === this.selectedSacrifice.instanceId);
     if (sacIndex !== -1) {
       PLAYER_DATA.inventory.splice(sacIndex, 1);
     }
-
-    // Sécurité : si l'unité sacrifiée était dans le deck, on l'en retire
     PLAYER_DATA.deck = PLAYER_DATA.deck.filter(id => id !== this.selectedSacrifice.instanceId);
 
     saveGameData();
