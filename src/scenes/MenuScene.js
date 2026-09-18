@@ -66,14 +66,14 @@ export class MenuScene extends Phaser.Scene {
     }).setOrigin(0.5);
 
     // Panneau des stats
-    this.add.rectangle(400, 135, 340, 44, COLORS.background2, 0.85)
+    this.add.rectangle(400, 135, 420, 44, COLORS.background2, 0.85)
       .setStrokeStyle(1, COLORS.darkGrey);
 
-    this.add.rectangle(245, 135, 3, 28, COLORS.gold);
-    this.add.rectangle(555, 135, 3, 28, COLORS.gold);
+    this.add.rectangle(205, 135, 3, 28, COLORS.gold);
+    this.add.rectangle(595, 135, 3, 28, COLORS.gold);
 
     this.uiText = this.add.text(400, 128, '', {
-      fontSize: '15px',
+      fontSize: '13px',
       color: '#ffffff',
       fontStyle: 'bold'
     }).setOrigin(0.5);
@@ -140,10 +140,14 @@ export class MenuScene extends Phaser.Scene {
 
   applyAdminCheats() {
     if (typeof PLAYER_DATA.adminGoldActive === 'undefined') PLAYER_DATA.adminGoldActive = false;
+    if (typeof PLAYER_DATA.adminStaminaActive === 'undefined') PLAYER_DATA.adminStaminaActive = false;
     if (typeof PLAYER_DATA.adminBuffActive === 'undefined') PLAYER_DATA.adminBuffActive = false;
 
     if (PLAYER_DATA.adminGoldActive) {
-      PLAYER_DATA.gold = 9999;
+      PLAYER_DATA.gold = Number.MAX_SAFE_INTEGER;
+    }
+    if (PLAYER_DATA.adminStaminaActive) {
+      PLAYER_DATA.stamina = PLAYER_DATA.maxStamina;
     }
   }
 
@@ -156,7 +160,7 @@ export class MenuScene extends Phaser.Scene {
     this.modalContainer.setDepth(150);
 
     const overlay = this.add.rectangle(400, 300, 800, 600, 0x000000, 0.85).setInteractive();
-    const panel = this.add.rectangle(400, 300, 480, 320, 0x10131d).setStrokeStyle(2, 0xe52b45);
+    const panel = this.add.rectangle(400, 300, 480, 370, 0x10131d).setStrokeStyle(2, 0xe52b45);
 
     this.add.rectangle(400, 160, 400, 2, 0x9e1b32);
 
@@ -166,15 +170,25 @@ export class MenuScene extends Phaser.Scene {
       fontStyle: 'bold'
     }).setOrigin(0.5);
 
-    const cbGoldBg = this.add.rectangle(230, 220, 24, 24, 0x252a38).setStrokeStyle(2, 0x9da3b0).setInteractive({ useHandCursor: true });
-    const cbGoldCheck = this.add.text(230, 220, '✓', { fontSize: '16px', color: '#ffd86b', fontStyle: 'bold' }).setOrigin(0.5);
+    // --- Or infini ---
+    const cbGoldBg = this.add.rectangle(230, 200, 24, 24, 0x252a38).setStrokeStyle(2, 0x9da3b0).setInteractive({ useHandCursor: true });
+    const cbGoldCheck = this.add.text(230, 200, '✓', { fontSize: '16px', color: '#ffd86b', fontStyle: 'bold' }).setOrigin(0.5);
     cbGoldCheck.setVisible(!!PLAYER_DATA.adminGoldActive);
 
-    const lblGold = this.add.text(260, 220, 'Activer l\'or à 9999', { fontSize: '13px', color: '#ffffff' }).setOrigin(0, 0.5);
+    const lblGold = this.add.text(260, 200, 'Activer l\'or infini', { fontSize: '13px', color: '#ffffff' }).setOrigin(0, 0.5);
 
     const toggleGold = () => {
       PLAYER_DATA.adminGoldActive = !PLAYER_DATA.adminGoldActive;
       cbGoldCheck.setVisible(PLAYER_DATA.adminGoldActive);
+
+      if (PLAYER_DATA.adminGoldActive) {
+        // Sauvegarde la valeur avant triche, pour pouvoir la restaurer
+        PLAYER_DATA.goldBeforeAdminCheat = PLAYER_DATA.gold;
+      } else if (PLAYER_DATA.goldBeforeAdminCheat !== undefined) {
+        PLAYER_DATA.gold = PLAYER_DATA.goldBeforeAdminCheat;
+        delete PLAYER_DATA.goldBeforeAdminCheat;
+      }
+
       this.applyAdminCheats();
       saveGameData();
       this.updateUI();
@@ -182,11 +196,38 @@ export class MenuScene extends Phaser.Scene {
     cbGoldBg.on('pointerdown', toggleGold);
     lblGold.setInteractive({ useHandCursor: true }).on('pointerdown', toggleGold);
 
-    const cbBuffBg = this.add.rectangle(230, 275, 24, 24, 0x252a38).setStrokeStyle(2, 0x9da3b0).setInteractive({ useHandCursor: true });
-    const cbBuffCheck = this.add.text(230, 275, '✓', { fontSize: '16px', color: '#ffd86b', fontStyle: 'bold' }).setOrigin(0.5);
+    // --- Stamina infinie ---
+    const cbStaminaBg = this.add.rectangle(230, 245, 24, 24, 0x252a38).setStrokeStyle(2, 0x9da3b0).setInteractive({ useHandCursor: true });
+    const cbStaminaCheck = this.add.text(230, 245, '✓', { fontSize: '16px', color: '#ffd86b', fontStyle: 'bold' }).setOrigin(0.5);
+    cbStaminaCheck.setVisible(!!PLAYER_DATA.adminStaminaActive);
+
+    const lblStamina = this.add.text(260, 245, 'Activer la stamina infinie', { fontSize: '13px', color: '#ffffff' }).setOrigin(0, 0.5);
+
+    const toggleStamina = () => {
+      PLAYER_DATA.adminStaminaActive = !PLAYER_DATA.adminStaminaActive;
+      cbStaminaCheck.setVisible(PLAYER_DATA.adminStaminaActive);
+
+      if (PLAYER_DATA.adminStaminaActive) {
+        // Sauvegarde la valeur avant triche, pour pouvoir la restaurer
+        PLAYER_DATA.staminaBeforeAdminCheat = PLAYER_DATA.stamina;
+      } else if (PLAYER_DATA.staminaBeforeAdminCheat !== undefined) {
+        PLAYER_DATA.stamina = Math.min(PLAYER_DATA.maxStamina, PLAYER_DATA.staminaBeforeAdminCheat);
+        delete PLAYER_DATA.staminaBeforeAdminCheat;
+      }
+
+      this.applyAdminCheats();
+      saveGameData();
+      this.updateUI();
+    };
+    cbStaminaBg.on('pointerdown', toggleStamina);
+    lblStamina.setInteractive({ useHandCursor: true }).on('pointerdown', toggleStamina);
+
+    // --- Statistiques x2 ---
+    const cbBuffBg = this.add.rectangle(230, 290, 24, 24, 0x252a38).setStrokeStyle(2, 0x9da3b0).setInteractive({ useHandCursor: true });
+    const cbBuffCheck = this.add.text(230, 290, '✓', { fontSize: '16px', color: '#ffd86b', fontStyle: 'bold' }).setOrigin(0.5);
     cbBuffCheck.setVisible(!!PLAYER_DATA.adminBuffActive);
 
-    const lblBuff = this.add.text(260, 275, 'Statistiques de toutes les cartes x2', { fontSize: '13px', color: '#ffffff' }).setOrigin(0, 0.5);
+    const lblBuff = this.add.text(260, 290, 'Statistiques de toutes les cartes x2', { fontSize: '13px', color: '#ffffff' }).setOrigin(0, 0.5);
 
     const toggleBuff = () => {
       PLAYER_DATA.adminBuffActive = !PLAYER_DATA.adminBuffActive;
@@ -196,11 +237,11 @@ export class MenuScene extends Phaser.Scene {
     cbBuffBg.on('pointerdown', toggleBuff);
     lblBuff.setInteractive({ useHandCursor: true }).on('pointerdown', toggleBuff);
 
-    const closeBtn = this.add.rectangle(400, 375, 140, 35, 0x252a38)
+    const closeBtn = this.add.rectangle(400, 400, 140, 35, 0x252a38)
       .setInteractive({ useHandCursor: true })
       .setStrokeStyle(1, 0x9da3b0);
 
-    const closeText = this.add.text(400, 375, 'FERMER', {
+    const closeText = this.add.text(400, 400, 'FERMER', {
       fontSize: '12px',
       color: '#ffffff',
       fontStyle: 'bold'
@@ -228,6 +269,7 @@ export class MenuScene extends Phaser.Scene {
     this.modalContainer.add([
       overlay, panel, title,
       cbGoldBg, cbGoldCheck, lblGold,
+      cbStaminaBg, cbStaminaCheck, lblStamina,
       cbBuffBg, cbBuffCheck, lblBuff,
       closeBtn, closeText
     ]);
@@ -422,7 +464,9 @@ export class MenuScene extends Phaser.Scene {
 
   updateUI() {
     this.applyAdminCheats();
-    this.uiText.setText(`⚡ Stamina: ${PLAYER_DATA.stamina}/${PLAYER_DATA.maxStamina}   |   💰 Or: ${PLAYER_DATA.gold}`);
+    const goldDisplay = PLAYER_DATA.adminGoldActive ? '∞' : PLAYER_DATA.gold;
+    const staminaDisplay = PLAYER_DATA.adminStaminaActive ? '∞' : PLAYER_DATA.stamina;
+    this.uiText.setText(`⚡ Stamina: ${staminaDisplay}/${PLAYER_DATA.maxStamina}   |   💰 Or: ${goldDisplay}   |   🌠 ${PLAYER_DATA.summonShards || 0}`);
     this.updateAccountUI();
 
     if (PLAYER_DATA.stamina < PLAYER_DATA.maxStamina) {

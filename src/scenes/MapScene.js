@@ -94,7 +94,9 @@ export class MapScene extends Phaser.Scene {
   updateUI() {
     const maxCol = Math.max(...this.currentChapter.tiles.map(t => t.col));
     const currentTile = this.getTile(PLAYER_DATA.currentTileId);
-    this.uiText.setText(`⚡ Stamina: ${PLAYER_DATA.stamina}/${PLAYER_DATA.maxStamina}   |   💰 Or: ${PLAYER_DATA.gold}   |   📍 Progression: ${currentTile.col}/${maxCol}`);
+    const staminaDisplay = PLAYER_DATA.adminStaminaActive ? '∞' : PLAYER_DATA.stamina;
+    const goldDisplay = PLAYER_DATA.adminGoldActive ? '∞' : PLAYER_DATA.gold;
+    this.uiText.setText(`⚡ Stamina: ${staminaDisplay}/${PLAYER_DATA.maxStamina}   |   💰 Or: ${goldDisplay}   |   📍 Progression: ${currentTile.col}/${maxCol}`);
 
     if (PLAYER_DATA.stamina < PLAYER_DATA.maxStamina) {
       const now = Date.now();
@@ -149,14 +151,16 @@ export class MapScene extends Phaser.Scene {
   }
 
   movePlayer(targetId) {
-    if (PLAYER_DATA.stamina <= 0) {
+    if (!PLAYER_DATA.adminStaminaActive && PLAYER_DATA.stamina <= 0) {
       this.logText.setText('Plus assez de Stamina ! Reviens plus tard.').setColor('#ff4444');
       return;
     }
 
     const targetTile = this.getTile(targetId);
 
-    PLAYER_DATA.stamina -= 1;
+    if (!PLAYER_DATA.adminStaminaActive) {
+      PLAYER_DATA.stamina -= 1;
+    }
     PLAYER_DATA.currentTileId = targetId;
     saveGameData();
     this.updateUI();
@@ -164,9 +168,9 @@ export class MapScene extends Phaser.Scene {
     this.tweens.add({
       targets: this.playerGraphic,
       x: targetTile.x,
-      y: targetTile.y - 10,
-      duration: 300,
-      yoyo: true,
+      y: targetTile.y,
+      duration: 350,
+      ease: 'Sine.easeInOut',
       onComplete: () => {
         this.playerGraphic.setPosition(targetTile.x, targetTile.y);
         this.handleTileEvent(targetTile);

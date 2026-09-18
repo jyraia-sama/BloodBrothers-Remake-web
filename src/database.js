@@ -25,8 +25,7 @@ const ACTS_CONFIG = [
     id: 1,
     title: 'Acte I : La Forêt Sombre',
     bgColor: 0x112211,
-    enemyPool: ['squelette'],
-    bossUnit: 'boss',
+    bossUnit: 'gardien_foret',
     baseGold: 100,   // récompense du chapitre 1 de cet acte
     goldStep: 40      // augmentation par chapitre dans l'acte
   },
@@ -34,8 +33,7 @@ const ACTS_CONFIG = [
     id: 2,
     title: 'Acte II : Le Donjon Maudit',
     bgColor: 0x221122,
-    enemyPool: ['squelette', 'demon_inf'],
-    bossUnit: 'boss',
+    bossUnit: 'seigneur_donjon',
     baseGold: 450,
     goldStep: 90
   },
@@ -43,8 +41,7 @@ const ACTS_CONFIG = [
     id: 3,
     title: 'Acte III : Le Cratère Volcanique',
     bgColor: 0x331111,
-    enemyPool: ['demon_inf'],
-    bossUnit: 'boss',
+    bossUnit: 'boss', // Seigneur Démon : antagoniste final du jeu
     baseGold: 1100,
     goldStep: 180
   }
@@ -52,6 +49,25 @@ const ACTS_CONFIG = [
 
 const CHAPTERS_PER_ACT = 8;
 const BRANCH_START_CHAPTER = 4; // à partir de ce chapitre (dans chaque acte), embranchements
+
+// ------------------------------------------------------------
+//  Répartition des ennemis de zone (hors BOSS) sur les 24
+//  chapitres : 6 paliers de difficulté croissante, indépendants
+//  des Actes pour que la courbe reste continue sur tout le jeu.
+// ------------------------------------------------------------
+const ENEMY_TIERS = [
+  { maxChapter: 4, keys: ['squelette', 'gobelin_maraudeur', 'loup_affame', 'rat_corrompu'] },
+  { maxChapter: 8, keys: ['zombie_enrage', 'brigand_cagoule', 'araignee_geante'] },
+  { maxChapter: 12, keys: ['demon_inf', 'golem_fissure', 'harpie_sanglante', 'ombre_rampante'] },
+  { maxChapter: 16, keys: ['spectre_vengeur', 'troll_cavernes', 'cyclope_furieux'] },
+  { maxChapter: 20, keys: ['demon_mineur', 'liche_novice', 'gargouille_jade'] },
+  { maxChapter: 24, keys: ['chevalier_dechu', 'hydre_bicephale', 'vouivre_ecarlate'] }
+];
+
+function getEnemyPoolForChapter(globalChapterId) {
+  const tier = ENEMY_TIERS.find(t => globalChapterId <= t.maxChapter) || ENEMY_TIERS[ENEMY_TIERS.length - 1];
+  return tier.keys;
+}
 
 const GOLD_TILE = { type: 'gold', label: 'Trésor', color: 0xddaa00 };
 const HEAL_TILE = { type: 'heal', label: 'Fontaine', color: 0x22aa22 };
@@ -163,13 +179,14 @@ export const ACTS_DATABASE = ACTS_CONFIG.map(act => ({
   ...act,
   chapters: Array.from({ length: CHAPTERS_PER_ACT }, (_, i) => {
     const chapterNum = i + 1;
+    const globalId = (act.id - 1) * CHAPTERS_PER_ACT + chapterNum; // id global unique : 1 à 24
     return {
-      id: (act.id - 1) * CHAPTERS_PER_ACT + chapterNum, // id global unique : 1 à 24
+      id: globalId,
       actId: act.id,
       chapterNum,
       title: `${act.title} – Chapitre ${chapterNum}`,
       bgColor: act.bgColor,
-      enemyPool: act.enemyPool,
+      enemyPool: getEnemyPoolForChapter(globalId),
       bossUnit: act.bossUnit,
       rewardGold: act.baseGold + act.goldStep * (chapterNum - 1),
       tiles: buildTiles(chapterNum)

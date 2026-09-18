@@ -277,6 +277,14 @@ export class BattleScene extends Phaser.Scene {
         } else {
           PLAYER_DATA.currentTileId = 0;
         }
+
+        // --- Drop de boss : chance d'obtenir un Éclat de Pacte Supérieur ---
+        const SHARD_DROP_CHANCE = 0.2;
+        if (Math.random() < SHARD_DROP_CHANCE) {
+          PLAYER_DATA.summonShards = (PLAYER_DATA.summonShards || 0) + 1;
+          victoryMsg += ` 🌠 Le boss a lâché un Éclat de Pacte Supérieur !`;
+          this.addLog('🌠 Objet obtenu : Éclat de Pacte Supérieur');
+        }
       }
 
       saveGameData();

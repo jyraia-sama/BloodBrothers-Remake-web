@@ -1,6 +1,11 @@
 import { PLAYER_DATA, saveGameData } from '../saveSystem.js';
 import { UNITS_DATABASE } from '../database.js';
 import { getInstanceStats } from '../levelSystem.js';
+import { makeScrollable } from '../scrollHelper.js';
+
+const PICKER_VIEWPORT = { x: 400, y: 500, width: 780, height: 195 };
+const PICKER_COLS = 8;
+const PICKER_ROW_HEIGHT = 85;
 
 export class FusionScene extends Phaser.Scene {
   constructor() {
@@ -12,6 +17,7 @@ export class FusionScene extends Phaser.Scene {
   create() {
     this.selectedPrimary = null;
     this.selectedSacrifice = null;
+    this.pickerScroll = null;
 
     this.add.rectangle(400, 300, 800, 600, 0x111622);
     this.add.text(400, 35, 'AUTEL DE FUSION', { fontSize: '26px', color: '#ff8800', fontStyle: 'bold' }).setOrigin(0.5);
@@ -79,6 +85,10 @@ export class FusionScene extends Phaser.Scene {
   }
 
   renderInventoryPicker() {
+    if (this.pickerScroll) {
+      this.pickerScroll.destroy();
+      this.pickerScroll = null;
+    }
     if (this.inventoryContainer) this.inventoryContainer.destroy();
     this.inventoryContainer = this.add.container(0, 0);
 
@@ -89,13 +99,16 @@ export class FusionScene extends Phaser.Scene {
       return !isSelected;
     });
 
+    const viewportTop = PICKER_VIEWPORT.y - PICKER_VIEWPORT.height / 2;
+    const firstRowY = viewportTop + 45;
+
     candidates.forEach((instance, displayIndex) => {
       const base = UNITS_DATABASE[instance.unitKey];
       if (!base) return;
 
       const isEquipped = PLAYER_DATA.deck.includes(instance.instanceId);
-      const x = 80 + (displayIndex % 8) * 95;
-      const y = 445 + Math.floor(displayIndex / 8) * 85;
+      const x = 80 + (displayIndex % PICKER_COLS) * 95;
+      const y = firstRowY + Math.floor(displayIndex / PICKER_COLS) * PICKER_ROW_HEIGHT;
 
       const card = this.add.rectangle(x, y, 80, 75, base.color)
         .setStrokeStyle(1, isEquipped ? 0x00ff88 : 0xaaaaaa)
@@ -116,9 +129,14 @@ export class FusionScene extends Phaser.Scene {
         ? 'Aucune unité disponible.'
         : 'Aucune unité en réserve disponible pour le sacrifice.';
       this.inventoryContainer.add(
-        this.add.text(400, 480, msg, { fontSize: '13px', color: '#888888' }).setOrigin(0.5)
+        this.add.text(400, PICKER_VIEWPORT.y, msg, { fontSize: '13px', color: '#888888' }).setOrigin(0.5)
       );
     }
+
+    // --- Défilement si la grille dépasse la zone visible ---
+    const rows = Math.max(1, Math.ceil(candidates.length / PICKER_COLS));
+    const contentHeight = rows * PICKER_ROW_HEIGHT + 20;
+    this.pickerScroll = makeScrollable(this, this.inventoryContainer, PICKER_VIEWPORT, contentHeight);
   }
 
   selectUnitForFusion(instance) {

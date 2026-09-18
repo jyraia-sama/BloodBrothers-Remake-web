@@ -9,7 +9,10 @@ export const CHANGELOG_DATA = [
       "Combat impossible à engager si l'équipe (deck) est vide, avec message d'avertissement.",
       "Notes de mise à jour : contenu déroulant et bouton de retour déplacé en haut à droite.",
       "Correction : le retrait d'une carte de l'équipe équipée ne fonctionnait plus.",
-      "Correction : le déverrouillage de chapitre est désormais robuste à un éventuel décalage de progression (Actes 2 et 3 inclus)."
+      "Correction : le déverrouillage de chapitre est désormais robuste à un éventuel décalage de progression (Actes 2 et 3 inclus).",
+      "Ajout de la rareté UR (Ultra Rare) avec 3 nouveaux monstres, au-dessus des SSR.",
+      "Ajout de l'Éclat de Pacte Supérieur : objet looté avec une chance sur les BOSS, permettant d'invoquer des SR/SSR/UR.",
+      "Autel d'Invocation : le Pacte Doré (100 Or) ne permet plus d'invoquer que des N/R/SR ; les SSR et UR nécessitent un Pacte Supérieur (Éclat)."
     ]
   },
   {

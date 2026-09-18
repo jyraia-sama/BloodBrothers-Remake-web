@@ -42,7 +42,7 @@ export const SUMMON_POOL_DATABASE = {
   },
   boss: {
     name: 'Seigneur Démon',
-    hp: 2500, maxHp: 2500, atk: 250, def: 180, agi: 130, wis: 180,
+    hp: 2500, maxHp: 2500, atk: 350, def: 180, agi: 130, wis: 180,
     color: 0xaa00aa, rarity: 'SSR',
     skill: { name: 'Cataclysme', chance: 0.4, type: 'damage_aoe', multiplier: 1.2 }
   },
@@ -276,5 +276,143 @@ export const SUMMON_POOL_DATABASE = {
     name: 'Reine des Liches', hp: 1350, maxHp: 1350, atk: 310, def: 180, agi: 170, wis: 220,
     color: 0x2a0a3a, rarity: 'SSR',
     skill: { name: 'Résurrection Noire', chance: 0.4, type: 'heal_team', power: 400 }
+  },
+
+  // ============================================================
+  //  RARETÉ UR (Ultra Rare) — 3 monstres, exclusifs au Pacte Supérieur
+  // ============================================================
+  phenix_immortel: {
+    name: 'Phénix Immortel', hp: 1800, maxHp: 1800, atk: 360, def: 230, agi: 260, wis: 240,
+    color: 0xff6600, rarity: 'UR',
+    skill: { name: 'Renaissance Ardente', chance: 0.4, type: 'heal_team', power: 500 }
+  },
+  leviathan_abyssal: {
+    name: 'Léviathan Abyssal', hp: 2000, maxHp: 2000, atk: 380, def: 260, agi: 200, wis: 220,
+    color: 0x003355, rarity: 'UR',
+    skill: { name: 'Raz-de-Marée Titanesque', chance: 0.35, type: 'damage_aoe', multiplier: 1.3 }
+  },
+  empereur_dechu: {
+    name: 'Empereur Déchu', hp: 1750, maxHp: 1750, atk: 400, def: 240, agi: 230, wis: 200,
+    color: 0x330011, rarity: 'UR',
+    skill: { name: 'Édit de Destruction', chance: 0.4, type: 'damage_single', multiplier: 2.5 }
+  },
+
+  // ============================================================
+  //  ENNEMIS EXCLUSIFS AUX COMBATS (non invocables par le joueur)
+  //  Répartis en 6 paliers de difficulté sur les 24 chapitres.
+  // ============================================================
+
+  // --- Palier 1 (chapitres 1-4) ---
+  gobelin_maraudeur: {
+    name: 'Gobelin Maraudeur', hp: 580, maxHp: 580, atk: 110, def: 60, agi: 95, wis: 25,
+    color: 0x3d6b2b, rarity: 'N',
+    skill: { name: 'Pillage Rapide', chance: 0.28, type: 'damage_single', multiplier: 1.3 }
+  },
+  loup_affame: {
+    name: 'Loup Affamé', hp: 600, maxHp: 600, atk: 120, def: 55, agi: 105, wis: 20,
+    color: 0x555555, rarity: 'N',
+    skill: { name: 'Morsure Vorace', chance: 0.3, type: 'damage_single', multiplier: 1.35 }
+  },
+  rat_corrompu: {
+    name: 'Rat Corrompu', hp: 560, maxHp: 560, atk: 100, def: 50, agi: 100, wis: 20,
+    color: 0x4a3a2a, rarity: 'N',
+    skill: { name: 'Fièvre Rampante', chance: 0.25, type: 'damage_aoe', multiplier: 0.5 }
+  },
+
+  // --- Palier 2 (chapitres 5-8) ---
+  zombie_enrage: {
+    name: 'Zombie Enragé', hp: 760, maxHp: 760, atk: 150, def: 95, agi: 100, wis: 40,
+    color: 0x4a5a2a, rarity: 'R',
+    skill: { name: 'Assaut Putride', chance: 0.3, type: 'damage_single', multiplier: 1.5 }
+  },
+  brigand_cagoule: {
+    name: 'Brigand Cagoulé', hp: 740, maxHp: 740, atk: 160, def: 85, agi: 130, wis: 50,
+    color: 0x333333, rarity: 'R',
+    skill: { name: 'Frappe Sournoise', chance: 0.32, type: 'damage_single', multiplier: 1.6 }
+  },
+  araignee_geante: {
+    name: 'Araignée Géante', hp: 780, maxHp: 780, atk: 155, def: 90, agi: 120, wis: 60,
+    color: 0x2a1a3a, rarity: 'R',
+    skill: { name: 'Toile Empoisonnée', chance: 0.3, type: 'damage_aoe', multiplier: 0.7 }
+  },
+
+  // --- Palier 3 (chapitres 9-12) ---
+  golem_fissure: {
+    name: 'Golem Fissuré', hp: 960, maxHp: 960, atk: 190, def: 150, agi: 70, wis: 70,
+    color: 0x6a6a5a, rarity: 'SR',
+    skill: { name: 'Éclat de Pierre', chance: 0.3, type: 'damage_single', multiplier: 1.8 }
+  },
+  harpie_sanglante: {
+    name: 'Harpie Sanglante', hp: 920, maxHp: 920, atk: 210, def: 110, agi: 160, wis: 80,
+    color: 0x9a2a2a, rarity: 'SR',
+    skill: { name: 'Plongeon Sanglant', chance: 0.32, type: 'damage_single', multiplier: 1.85 }
+  },
+  ombre_rampante: {
+    name: 'Ombre Rampante', hp: 900, maxHp: 900, atk: 200, def: 100, agi: 150, wis: 100,
+    color: 0x1a1a2a, rarity: 'SR',
+    skill: { name: 'Étreinte des Ténèbres', chance: 0.3, type: 'damage_aoe', multiplier: 0.9 }
+  },
+
+  // --- Palier 4 (chapitres 13-16) ---
+  spectre_vengeur: {
+    name: 'Spectre Vengeur', hp: 1100, maxHp: 1100, atk: 230, def: 150, agi: 180, wis: 130,
+    color: 0x5a7a9a, rarity: 'SR',
+    skill: { name: 'Vengeance Spectrale', chance: 0.32, type: 'damage_single', multiplier: 1.95 }
+  },
+  troll_cavernes: {
+    name: 'Troll des Cavernes', hp: 1200, maxHp: 1200, atk: 220, def: 180, agi: 90, wis: 90,
+    color: 0x4a5a3a, rarity: 'SR',
+    skill: { name: 'Régénération Souterraine', chance: 0.3, type: 'heal_team', power: 220 }
+  },
+  cyclope_furieux: {
+    name: 'Cyclope Furieux', hp: 1150, maxHp: 1150, atk: 245, def: 165, agi: 100, wis: 60,
+    color: 0x7a5a2a, rarity: 'SR',
+    skill: { name: 'Écrasement Rageur', chance: 0.3, type: 'damage_aoe', multiplier: 0.95 }
+  },
+
+  // --- Palier 5 (chapitres 17-20) ---
+  demon_mineur: {
+    name: 'Démon Mineur', hp: 1300, maxHp: 1300, atk: 270, def: 190, agi: 190, wis: 150,
+    color: 0x8a1a1a, rarity: 'SSR',
+    skill: { name: 'Flammes Infernales', chance: 0.32, type: 'damage_aoe', multiplier: 1.05 }
+  },
+  liche_novice: {
+    name: 'Liche Novice', hp: 1280, maxHp: 1280, atk: 265, def: 175, agi: 170, wis: 200,
+    color: 0x2a6a5a, rarity: 'SSR',
+    skill: { name: 'Malédiction Drainante', chance: 0.35, type: 'heal_team', power: 280 }
+  },
+  gargouille_jade: {
+    name: 'Gargouille de Jade', hp: 1350, maxHp: 1350, atk: 255, def: 210, agi: 160, wis: 120,
+    color: 0x2a8a5a, rarity: 'SSR',
+    skill: { name: 'Éclat de Jade', chance: 0.3, type: 'damage_single', multiplier: 2.0 }
+  },
+
+  // --- Palier 6 (chapitres 21-24) ---
+  chevalier_dechu: {
+    name: 'Chevalier Déchu', hp: 1500, maxHp: 1500, atk: 300, def: 220, agi: 170, wis: 110,
+    color: 0x3a1a1a, rarity: 'SSR',
+    skill: { name: 'Serment Brisé', chance: 0.32, type: 'damage_single', multiplier: 2.1 }
+  },
+  hydre_bicephale: {
+    name: 'Hydre Bicéphale', hp: 1600, maxHp: 1600, atk: 310, def: 210, agi: 150, wis: 130,
+    color: 0x1a5a3a, rarity: 'SSR',
+    skill: { name: 'Double Morsure', chance: 0.35, type: 'damage_aoe', multiplier: 1.1 }
+  },
+  vouivre_ecarlate: {
+    name: 'Vouivre Écarlate', hp: 1550, maxHp: 1550, atk: 320, def: 200, agi: 220, wis: 140,
+    color: 0xaa1a2a, rarity: 'SSR',
+    skill: { name: 'Souffle Écarlate', chance: 0.32, type: 'damage_aoe', multiplier: 1.15 }
+  },
+
+  // --- Boss d'Acte (remplacent le boss unique recyclé sur les Actes I et II) ---
+  gardien_foret: {
+    name: 'Gardien de la Forêt Maudite', hp: 1450, maxHp: 1450, atk: 260, def: 170, agi: 120, wis: 110,
+    color: 0x114411, rarity: 'SR',
+    skill: { name: 'Racines Étrangleuses', chance: 0.35, type: 'damage_aoe', multiplier: 1.0 }
+  },
+  seigneur_donjon: {
+    name: 'Seigneur du Donjon Maudit', hp: 1950, maxHp: 1950, atk: 310, def: 210, agi: 150, wis: 150,
+    color: 0x441144, rarity: 'SSR',
+    skill: { name: 'Jugement du Donjon', chance: 0.35, type: 'damage_single', multiplier: 2.2 }
   }
 };

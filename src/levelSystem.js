@@ -13,7 +13,8 @@ const GROWTH_BY_RARITY = {
   N: 0.035,
   R: 0.045,
   SR: 0.055,
-  SSR: 0.065
+  SSR: 0.065,
+  UR: 0.075
 };
 
 /**
@@ -200,7 +201,8 @@ export const SELL_PRICE_BY_RARITY = {
   N: 20,
   R: 60,
   SR: 150,
-  SSR: 400
+  SSR: 400,
+  UR: 900
 };
 
 export function getSellPrice(baseUnit) {

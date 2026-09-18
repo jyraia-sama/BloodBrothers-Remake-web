@@ -14,6 +14,7 @@ function buildDefaultData() {
     accountLevel: 1,
     accountXp: 0,
     gold: 500,
+    summonShards: 0, // Éclats de Pacte Supérieur (drop de boss)
     unlockedChapter: 1,
     currentChapter: 1,
     currentTileId: 0,
@@ -33,6 +34,9 @@ export function loadGameData() {
   }
   if (data.unlockedChapter === undefined) {
     data.unlockedChapter = 1;
+  }
+  if (data.summonShards === undefined) {
+    data.summonShards = 0;
   }
 
   // --- Migration : inventaire de cles -> inventaire d'instances ---
