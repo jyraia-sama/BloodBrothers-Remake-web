@@ -1,14 +1,14 @@
 import { SUMMON_POOL_DATABASE } from './scenes/SummonPoolData.js';
 
 export const HEROES_DATABASE = {
-  brute_noire: { name: 'La Brute Noire', race: 'Gorille', hp: 1400, maxHp: 1400, atk: 320, def: 110, agi: 60, wis: 50, color: 0x222222, rarity: 'SSR', skill: { name: 'Frappe Brutale', chance: 0.35, type: 'damage_single', multiplier: 2.0 } },
-  barbe_bleue: { name: 'Barbe Bleue', race: 'Nain', hp: 1200, maxHp: 1200, atk: 160, def: 240, agi: 80, wis: 150, color: 0x114488, rarity: 'SSR', skill: { name: 'Bouclier Magique', chance: 0.4, type: 'heal_team', power: 250 } },
-  lance_doree: { name: 'La Lance Dorée', race: 'Homme-Lézard', hp: 900, maxHp: 900, atk: 220, def: 90, agi: 260, wis: 70, color: 0xddaa00, rarity: 'SSR', skill: { name: 'Estoc Éclair', chance: 0.35, type: 'damage_single', multiplier: 1.7 } },
-  nymphe: { name: 'La Nymphe', race: 'Elfe', hp: 950, maxHp: 950, atk: 150, def: 200, agi: 110, wis: 220, color: 0x22aa55, rarity: 'SSR', skill: { name: 'Soin Sacré', chance: 0.4, type: 'heal_lowest', power: 400 } },
-  mage_gris: { name: 'Le Mage Gris', race: 'Gobelin', hp: 800, maxHp: 800, atk: 260, def: 70, agi: 220, wis: 250, color: 0x777788, rarity: 'SSR', skill: { name: 'Explosion Magique', chance: 0.3, type: 'damage_aoe', multiplier: 1.1 } },
-  dague_violette: { name: 'La Dague Violette', race: 'Elfe Sombre', hp: 850, maxHp: 850, atk: 290, def: 80, agi: 180, wis: 90, color: 0x660099, rarity: 'SSR', skill: { name: 'Lame d\'Ombre', chance: 0.35, type: 'damage_single', multiplier: 1.9 } },
-  samourai_rouge: { name: 'Le Samouraï Rouge', race: 'Humain', hp: 1000, maxHp: 1000, atk: 280, def: 100, agi: 200, wis: 60, color: 0xcc1111, rarity: 'SSR', skill: { name: 'Entaille Rapide', chance: 0.35, type: 'damage_single', multiplier: 1.8 } },
-  chevalier_blanc: { name: 'Le Chevalier Blanc', race: 'Humain', hp: 1250, maxHp: 1250, atk: 250, def: 220, agi: 90, wis: 100, color: 0xeeeeee, rarity: 'SSR', skill: { name: 'Charge Sainte', chance: 0.3, type: 'damage_single', multiplier: 1.6 } }
+  brute_noire: { name: 'La Brute Noire', race: 'Gorille', hp: 1400, maxHp: 1400, atk: 320, def: 110, agi: 60, wis: 50, color: 0x222222, rarity: 'SSR', element: 'tenebres', skill: { name: 'Frappe Brutale', chance: 0.35, type: 'damage_single', multiplier: 2.0 } },
+  barbe_bleue: { name: 'Barbe Bleue', race: 'Nain', hp: 1200, maxHp: 1200, atk: 160, def: 240, agi: 80, wis: 150, color: 0x114488, rarity: 'SSR', element: 'eau', skill: { name: 'Bouclier Magique', chance: 0.4, type: 'heal_team', power: 250 } },
+  lance_doree: { name: 'La Lance Dorée', race: 'Homme-Lézard', hp: 900, maxHp: 900, atk: 220, def: 90, agi: 260, wis: 70, color: 0xddaa00, rarity: 'SSR', element: 'sacre', skill: { name: 'Estoc Éclair', chance: 0.35, type: 'damage_single', multiplier: 1.7 } },
+  nymphe: { name: 'La Nymphe', race: 'Elfe', hp: 950, maxHp: 950, atk: 150, def: 200, agi: 110, wis: 220, color: 0x22aa55, rarity: 'SSR', element: 'sacre', skill: { name: 'Soin Sacré', chance: 0.4, type: 'heal_lowest', power: 400 } },
+  mage_gris: { name: 'Le Mage Gris', race: 'Gobelin', hp: 800, maxHp: 800, atk: 260, def: 70, agi: 220, wis: 250, color: 0x777788, rarity: 'SSR', element: 'feu', skill: { name: 'Explosion Magique', chance: 0.3, type: 'damage_aoe', multiplier: 1.1 } },
+  dague_violette: { name: 'La Dague Violette', race: 'Elfe Sombre', hp: 850, maxHp: 850, atk: 290, def: 80, agi: 180, wis: 90, color: 0x660099, rarity: 'SSR', element: 'tenebres', skill: { name: 'Lame d\'Ombre', chance: 0.35, type: 'damage_single', multiplier: 1.9 } },
+  samourai_rouge: { name: 'Le Samouraï Rouge', race: 'Humain', hp: 1000, maxHp: 1000, atk: 280, def: 100, agi: 200, wis: 60, color: 0xcc1111, rarity: 'SSR', element: 'feu', skill: { name: 'Entaille Rapide', chance: 0.35, type: 'damage_single', multiplier: 1.8 } },
+  chevalier_blanc: { name: 'Le Chevalier Blanc', race: 'Humain', hp: 1250, maxHp: 1250, atk: 250, def: 220, agi: 90, wis: 100, color: 0xeeeeee, rarity: 'SSR', element: 'sacre', skill: { name: 'Charge Sainte', chance: 0.3, type: 'damage_single', multiplier: 1.6 } }
 };
 
 export const UNITS_DATABASE = {

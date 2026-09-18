@@ -2,6 +2,7 @@ import { PLAYER_DATA, saveGameData, getInstanceById } from '../saveSystem.js';
 import { UNITS_DATABASE } from '../database.js';
 import { getInstanceStats, getLevelProgress, xpForNextLevel, MAX_LEVEL, getSellPrice, describeSkill } from '../levelSystem.js';
 import { makeScrollable } from '../scrollHelper.js';
+import { ELEMENT_ICONS, ELEMENT_LABELS, FRONT_ROW_SIZE } from '../elements.js';
 
 const INVENTORY_VIEWPORT = { x: 400, y: 425, width: 780, height: 310 };
 const COLS = 7;
@@ -86,6 +87,12 @@ export class DeckScene extends Phaser.Scene {
       const nameText = this.add.text(x, y - 39, base.name.split(' ')[0], { fontSize: '11px', color: '#fff' }).setOrigin(0.5);
       const lvlText = this.add.text(x, y - 24, `Nv. ${instance.level}`, { fontSize: '11px', color: '#00ffaa', fontStyle: 'bold' }).setOrigin(0.5);
 
+      const isFront = index < FRONT_ROW_SIZE;
+      const posText = this.add.text(x - 28, y - 39, isFront ? 'AV' : 'AR', {
+        fontSize: '9px', color: isFront ? '#ff8888' : '#88aaff', fontStyle: 'bold'
+      }).setOrigin(0.5);
+      const elementText = this.add.text(x + 28, y - 39, ELEMENT_ICONS[base.element] || '', { fontSize: '13px' }).setOrigin(0.5);
+
       const atkText = this.add.text(x, y - 8, `ATK:${stats.atk}`, { fontSize: '10px', color: '#ffdd00' }).setOrigin(0.5);
       const wisText = this.add.text(x, y + 6, `WIS:${stats.wis}`, { fontSize: '10px', color: '#00ffff' }).setOrigin(0.5);
 
@@ -104,9 +111,45 @@ export class DeckScene extends Phaser.Scene {
         this.renderInventory();
       });
 
-      this.deckContainer.add([card, nameText, lvlText, atkText, wisText, infoBtn, infoLabel]);
+      this.deckContainer.add([card, nameText, lvlText, posText, elementText, atkText, wisText, infoBtn, infoLabel]);
       this.drawXpBar(this.deckContainer, x, y + 36, 76, instance);
+
+      // --- Flèches de réorganisation (changent l'ordre Avant/Arrière) ---
+      if (index > 0) {
+        const leftArrow = this.add.text(x - 18, y + 50, '◀', { fontSize: '13px', color: '#aaaaaa', fontStyle: 'bold' })
+          .setOrigin(0.5).setInteractive({ useHandCursor: true });
+        leftArrow.on('pointerover', () => leftArrow.setColor('#ffffff'));
+        leftArrow.on('pointerout', () => leftArrow.setColor('#aaaaaa'));
+        leftArrow.on('pointerdown', (pointer) => {
+          pointer.event.stopPropagation();
+          this.swapDeckPosition(index, -1);
+        });
+        this.deckContainer.add(leftArrow);
+      }
+      if (index < PLAYER_DATA.deck.length - 1) {
+        const rightArrow = this.add.text(x + 18, y + 50, '▶', { fontSize: '13px', color: '#aaaaaa', fontStyle: 'bold' })
+          .setOrigin(0.5).setInteractive({ useHandCursor: true });
+        rightArrow.on('pointerover', () => rightArrow.setColor('#ffffff'));
+        rightArrow.on('pointerout', () => rightArrow.setColor('#aaaaaa'));
+        rightArrow.on('pointerdown', (pointer) => {
+          pointer.event.stopPropagation();
+          this.swapDeckPosition(index, 1);
+        });
+        this.deckContainer.add(rightArrow);
+      }
     });
+  }
+
+  /** Échange deux unités équipées de position (affecte l'ordre Avant/Arrière en combat). */
+  swapDeckPosition(index, direction) {
+    const newIndex = index + direction;
+    if (newIndex < 0 || newIndex >= PLAYER_DATA.deck.length) return;
+
+    const temp = PLAYER_DATA.deck[index];
+    PLAYER_DATA.deck[index] = PLAYER_DATA.deck[newIndex];
+    PLAYER_DATA.deck[newIndex] = temp;
+    saveGameData();
+    this.renderDeck();
   }
 
   renderInventory() {
@@ -140,6 +183,7 @@ export class DeckScene extends Phaser.Scene {
       const nameText = this.add.text(x, y - 38, base.name.split(' ')[0], { fontSize: '10px', color: isEquipped ? '#888888' : '#fff' }).setOrigin(0.5);
       const lvlText = this.add.text(x, y - 23, `Nv. ${instance.level}`, { fontSize: '10px', color: isEquipped ? '#888888' : '#00ffaa' }).setOrigin(0.5);
       const rarityText = this.add.text(x, y - 8, `[${base.rarity}]`, { fontSize: '11px', color: isEquipped ? '#888888' : '#ffdd00' }).setOrigin(0.5);
+      const elementText = this.add.text(x - 29, y - 42, ELEMENT_ICONS[base.element] || '', { fontSize: '12px' }).setOrigin(0.5);
 
       const infoBtn = this.add.circle(x + 29, y - 42, 10, 0x111111).setStrokeStyle(1, 0xffffff).setInteractive({ useHandCursor: true });
       const infoLabel = this.add.text(x + 29, y - 42, '?', { fontSize: '10px', color: '#fff' }).setOrigin(0.5);
@@ -166,7 +210,7 @@ export class DeckScene extends Phaser.Scene {
         }
       });
 
-      this.inventoryContainer.add([card, nameText, lvlText, rarityText, infoBtn, infoLabel]);
+      this.inventoryContainer.add([card, nameText, lvlText, rarityText, elementText, infoBtn, infoLabel]);
       this.drawXpBar(this.inventoryContainer, x, y + 24, 66, instance);
 
       // --- Vente (uniquement pour une carte NON équipée) ---
@@ -225,21 +269,27 @@ export class DeckScene extends Phaser.Scene {
     const overlay = this.add.rectangle(400, 300, 800, 600, 0x000000, 0.7).setInteractive();
     const panel = this.add.rectangle(400, 300, 380, 430, 0x222233).setStrokeStyle(2, 0xffffff);
 
-    const title = this.add.text(400, 115, `${base.name} [${base.rarity}]`, { fontSize: '20px', color: '#ffdd00', fontStyle: 'bold' }).setOrigin(0.5);
+    const title = this.add.text(400, 112, `${base.name} [${base.rarity}]`, { fontSize: '20px', color: '#ffdd00', fontStyle: 'bold' }).setOrigin(0.5);
+
+    const deckIndex = PLAYER_DATA.deck.indexOf(instance.instanceId);
+    const posStr = deckIndex === -1 ? '' : (deckIndex < FRONT_ROW_SIZE ? '  •  Position : AVANT' : '  •  Position : ARRIÈRE');
+    const elementLine = this.add.text(400, 133, `${ELEMENT_LABELS[base.element] || 'Aucun élément'}${posStr}`, {
+      fontSize: '12px', color: '#cccccc'
+    }).setOrigin(0.5);
 
     const xpStr = instance.level >= MAX_LEVEL
       ? 'NIVEAU MAXIMUM ATTEINT'
       : `XP : ${instance.xp} / ${xpForNextLevel(instance.level)}`;
-    const levelLine = this.add.text(400, 145, `Niveau ${instance.level} / ${MAX_LEVEL}  —  ${xpStr}`, { fontSize: '13px', color: '#00ffaa' }).setOrigin(0.5);
+    const levelLine = this.add.text(400, 155, `Niveau ${instance.level} / ${MAX_LEVEL}  —  ${xpStr}`, { fontSize: '13px', color: '#00ffaa' }).setOrigin(0.5);
 
-    const barBg = this.add.rectangle(400, 168, 260, 10, 0x111111).setStrokeStyle(1, 0x555555);
+    const barBg = this.add.rectangle(400, 175, 260, 10, 0x111111).setStrokeStyle(1, 0x555555);
     const progress = getLevelProgress(instance);
     const fillW = Math.max(1, 260 * progress);
-    const barFill = this.add.rectangle(400 - 130 + fillW / 2, 168, fillW, 10,
+    const barFill = this.add.rectangle(400 - 130 + fillW / 2, 175, fillW, 10,
       instance.level >= MAX_LEVEL ? 0xffdd00 : 0x00ccaa);
 
     const statsStr = `❤️ HP : ${stats.maxHp}\n⚔️ ATK : ${stats.atk}\n🔮 WIS : ${stats.wis}\n🛡️ DEF : ${stats.def}\n💨 AGI : ${stats.agi}`;
-    const statsText = this.add.text(265, 195, statsStr, { fontSize: '15px', color: '#ffffff', lineSpacing: 6 });
+    const statsText = this.add.text(265, 200, statsStr, { fontSize: '15px', color: '#ffffff', lineSpacing: 6 });
 
     const fusionStr = instance.fusionCount > 0
       ? `✨ Fusions absorbées : ${instance.fusionCount} (+${Math.round((Math.pow(1.15, instance.fusionCount) - 1) * 100)}% ATK/PV)`
@@ -256,6 +306,6 @@ export class DeckScene extends Phaser.Scene {
     closeBtn.on('pointerdown', () => this.modalContainer.destroy());
     overlay.on('pointerdown', () => this.modalContainer.destroy());
 
-    this.modalContainer.add([overlay, panel, title, levelLine, barBg, barFill, statsText, fusionText, skillTitle, skillDesc, closeBtn, closeText]);
+    this.modalContainer.add([overlay, panel, title, elementLine, levelLine, barBg, barFill, statsText, fusionText, skillTitle, skillDesc, closeBtn, closeText]);
   }
 }

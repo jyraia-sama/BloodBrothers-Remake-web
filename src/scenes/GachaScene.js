@@ -2,6 +2,7 @@ import { PLAYER_DATA, saveGameData } from '../saveSystem.js';
 import { UNITS_DATABASE } from '../database.js';
 import { SUMMON_POOL_DATABASE } from './SummonPoolData.js';
 import { createUnitInstance } from '../levelSystem.js';
+import { ELEMENT_LABELS } from '../elements.js';
 
 // Unités réservées aux combats (non invocables par le joueur)
 const ENEMY_ONLY_KEYS = [
@@ -151,7 +152,7 @@ export class GachaScene extends Phaser.Scene {
         this.cardDisplay.setFillStyle(unit.color);
         this.cardText.setText(unit.name).setColor('#ffffff');
         this.rarityText.setText(`[${unit.rarity}]`).setColor(RARITY_COLORS[unit.rarity] || '#ffffff');
-        this.levelText.setText('Niveau 1  •  0 XP');
+        this.levelText.setText(`Niveau 1  •  0 XP  •  ${ELEMENT_LABELS[unit.element] || ''}`);
       }
     });
   }

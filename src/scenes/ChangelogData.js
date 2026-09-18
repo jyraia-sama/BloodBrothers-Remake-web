@@ -12,7 +12,12 @@ export const CHANGELOG_DATA = [
       "Correction : le déverrouillage de chapitre est désormais robuste à un éventuel décalage de progression (Actes 2 et 3 inclus).",
       "Ajout de la rareté UR (Ultra Rare) avec 3 nouveaux monstres, au-dessus des SSR.",
       "Ajout de l'Éclat de Pacte Supérieur : objet looté avec une chance sur les BOSS, permettant d'invoquer des SR/SSR/UR.",
-      "Autel d'Invocation : le Pacte Doré (100 Or) ne permet plus d'invoquer que des N/R/SR ; les SSR et UR nécessitent un Pacte Supérieur (Éclat)."
+      "Autel d'Invocation : le Pacte Doré (100 Or) ne permet plus d'invoquer que des N/R/SR ; les SSR et UR nécessitent un Pacte Supérieur (Éclat).",
+      "Autel de Fusion : ajout du défilement (molette/flèches) sur la grille d'inventaire, oublié lors de la précédente mise à jour.",
+      "Mode Administrateur : \"Or à 9999\" devient \"Or infini\", ajout de \"Stamina infinie\" ; décocher une triche restaure désormais la valeur d'avant activation.",
+      "Ajout de 20 nouveaux ennemis répartis sur 6 paliers de difficulté couvrant les 24 chapitres, plus un boss dédié pour chaque Acte (l'ancien boss unique ne sert plus que pour l'Acte III).",
+      "Correction : le point de position sur la carte d'aventure faisait un aller-retour visuel lors des déplacements.",
+      "Correction : image floue sur PC, due à l'agrandissement CSS du canvas ; la résolution de rendu interne est désormais augmentée automatiquement."
     ]
   },
   {

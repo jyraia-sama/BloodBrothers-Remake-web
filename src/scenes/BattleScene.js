@@ -4,6 +4,7 @@ import {
   getInstanceStats, addXP, xpRewardForBattle, MAX_LEVEL,
   addAccountXP, accountXpRewardForBattle
 } from '../levelSystem.js';
+import { getElementMultiplier, ELEMENT_ICONS, FRONT_ROW_SIZE } from '../elements.js';
 
 export class BattleScene extends Phaser.Scene {
   constructor() {
@@ -48,12 +49,13 @@ export class BattleScene extends Phaser.Scene {
 
     // --- Équipe du joueur : stats calculées depuis les instances (niveau + fusions) ---
     this.deckInstances = getDeckInstances();
-    this.playerTeam = this.deckInstances.map(instance => {
+    this.playerTeam = this.deckInstances.map((instance, index) => {
       const base = UNITS_DATABASE[instance.unitKey];
       return {
         ...getInstanceStats(base, instance),
         side: 'player',
-        instanceId: instance.instanceId
+        instanceId: instance.instanceId,
+        position: index < FRONT_ROW_SIZE ? 'front' : 'back'
       };
     });
 
@@ -69,14 +71,15 @@ export class BattleScene extends Phaser.Scene {
     if (this.isBossCombat) {
       const minionKey = Phaser.Utils.Array.GetRandom(this.chapter.enemyPool);
       this.enemyTeam = [
-        { ...UNITS_DATABASE[minionKey], side: 'enemy' },
-        { ...UNITS_DATABASE[this.chapter.bossUnit], side: 'enemy' },
-        { ...UNITS_DATABASE[minionKey], side: 'enemy' }
+        { ...UNITS_DATABASE[minionKey], side: 'enemy', position: 'front' },
+        { ...UNITS_DATABASE[minionKey], side: 'enemy', position: 'front' },
+        { ...UNITS_DATABASE[this.chapter.bossUnit], side: 'enemy', position: 'back' }
       ];
     } else {
-      this.enemyTeam = [1, 2, 3].map(() => ({
+      this.enemyTeam = [1, 2, 3].map((_, index) => ({
         ...UNITS_DATABASE[Phaser.Utils.Array.GetRandom(this.chapter.enemyPool)],
-        side: 'enemy'
+        side: 'enemy',
+        position: index < FRONT_ROW_SIZE ? 'front' : 'back'
       }));
     }
 
@@ -108,8 +111,20 @@ export class BattleScene extends Phaser.Scene {
       if (showLevel && unit.level) {
         this.add.text(x, startY - 16, `Nv. ${unit.level}`, { fontSize: '10px', color: '#00ffaa' }).setOrigin(0.5);
       }
+      const elementIcon = ELEMENT_ICONS[unit.element] || '';
+      const posLabel = unit.position === 'front' ? 'AVANT' : 'ARRIÈRE';
+      this.add.text(x, startY - 44, `${elementIcon} ${posLabel}`, { fontSize: '9px', color: unit.position === 'front' ? '#ff8888' : '#88aaff' }).setOrigin(0.5);
       unit.hpText = this.add.text(x, startY + 30, `${unit.hp}/${unit.maxHp}`, { fontSize: '11px', color: '#00ff00' }).setOrigin(0.5);
     });
+  }
+
+  /** Cible en priorité un adversaire en Avant ; l'Arrière n'est visé que si l'Avant est vide. */
+  pickPriorityTarget(team) {
+    const alive = team.filter(u => u.hp > 0);
+    if (alive.length === 0) return null;
+    const front = alive.filter(u => u.position === 'front');
+    const pool = front.length > 0 ? front : alive;
+    return Phaser.Utils.Array.GetRandom(pool);
   }
 
   async startTurn() {
@@ -128,7 +143,7 @@ export class BattleScene extends Phaser.Scene {
       if (triggerSkill) {
         await this.executeSkill(attacker, allies, targets);
       } else {
-        await this.executeAttack(attacker, Phaser.Utils.Array.GetRandom(targets));
+        await this.executeAttack(attacker, this.pickPriorityTarget(targets));
       }
     }
 
@@ -145,10 +160,12 @@ export class BattleScene extends Phaser.Scene {
 
   executeAttack(attacker, target) {
     return new Promise((resolve) => {
-      let damage = Math.max(15, attacker.atk - Math.floor(target.def / 2));
+      const elementMult = getElementMultiplier(attacker.element, target.element);
+      let damage = Math.max(15, Math.round((attacker.atk - Math.floor(target.def / 2)) * elementMult));
       target.hp = Math.max(0, target.hp - damage);
 
-      const msg = `${attacker.name} touche ${target.name} (-${damage} HP)`;
+      const elementTag = elementMult > 1 ? ' 🔺 Avantage !' : elementMult < 1 ? ' 🔻 Résisté' : '';
+      const msg = `${attacker.name} touche ${target.name} (-${damage} HP)${elementTag}`;
       this.logText.setText(msg).setColor('#ffcc00');
       this.addLog(`• ${msg}`);
 
@@ -176,14 +193,17 @@ export class BattleScene extends Phaser.Scene {
         scaleX: 1.15, scaleY: 1.15, duration: 150 / this.gameSpeed, yoyo: true,
         onComplete: () => {
           if (skill.type === 'damage_single') {
-            const target = Phaser.Utils.Array.GetRandom(targets);
-            let damage = Math.max(20, Math.floor((attacker.atk * skill.multiplier) - (target.def / 2)));
+            const target = this.pickPriorityTarget(targets);
+            const elementMult = getElementMultiplier(attacker.element, target.element);
+            let damage = Math.max(20, Math.round(((attacker.atk * skill.multiplier) - (target.def / 2)) * elementMult));
             target.hp = Math.max(0, target.hp - damage);
-            this.addLog(`  -> ${target.name} subit ${damage} dégâts`);
+            const elementTag = elementMult > 1 ? ' 🔺 Avantage !' : elementMult < 1 ? ' 🔻 Résisté' : '';
+            this.addLog(`  -> ${target.name} subit ${damage} dégâts${elementTag}`);
             this.updateUnitUI(target);
           } else if (skill.type === 'damage_aoe') {
             targets.forEach(t => {
-              let damage = Math.max(10, Math.floor((attacker.atk * skill.multiplier) - (t.def / 2)));
+              const elementMult = getElementMultiplier(attacker.element, t.element);
+              let damage = Math.max(10, Math.round(((attacker.atk * skill.multiplier) - (t.def / 2)) * elementMult));
               t.hp = Math.max(0, t.hp - damage);
               this.updateUnitUI(t);
             });

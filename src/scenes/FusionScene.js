@@ -2,6 +2,7 @@ import { PLAYER_DATA, saveGameData } from '../saveSystem.js';
 import { UNITS_DATABASE } from '../database.js';
 import { getInstanceStats } from '../levelSystem.js';
 import { makeScrollable } from '../scrollHelper.js';
+import { ELEMENT_ICONS } from '../elements.js';
 
 const PICKER_VIEWPORT = { x: 400, y: 500, width: 780, height: 195 };
 const PICKER_COLS = 8;
@@ -118,10 +119,11 @@ export class FusionScene extends Phaser.Scene {
       const tagText = this.add.text(x, y + 20, isEquipped ? '★ Équipe' : `[${base.rarity}]`, {
         fontSize: '10px', color: isEquipped ? '#00ff88' : '#ffdd00'
       }).setOrigin(0.5);
+      const elementText = this.add.text(x - 30, y - 28, ELEMENT_ICONS[base.element] || '', { fontSize: '11px' }).setOrigin(0.5);
 
       card.on('pointerdown', () => this.selectUnitForFusion(instance));
 
-      this.inventoryContainer.add([card, nameText, lvlText, tagText]);
+      this.inventoryContainer.add([card, nameText, lvlText, tagText, elementText]);
     });
 
     if (candidates.length === 0) {
@@ -146,7 +148,7 @@ export class FusionScene extends Phaser.Scene {
     if (!this.selectedPrimary) {
       this.selectedPrimary = instance;
       const tag = isEquipped ? ' (Équipe)' : '';
-      this.primaryText.setText(`${base.name}${tag}\nNv. ${instance.level}\n(+15% Stats)`).setColor('#ffffff');
+      this.primaryText.setText(`${ELEMENT_ICONS[base.element] || ''} ${base.name}${tag}\nNv. ${instance.level}\n(+15% Stats)`).setColor('#ffffff');
       this.primarySlot.setFillStyle(base.color);
       this.logText.setText('Sélectionnez l\'unité à sacrifier (hors équipe).').setColor('#ffcc00');
       this.renderInventoryPicker();
@@ -163,7 +165,7 @@ export class FusionScene extends Phaser.Scene {
       }
 
       this.selectedSacrifice = instance;
-      this.sacrificeText.setText(`${base.name}\nNv. ${instance.level}`).setColor('#ffffff');
+      this.sacrificeText.setText(`${ELEMENT_ICONS[base.element] || ''} ${base.name}\nNv. ${instance.level}`).setColor('#ffffff');
       this.sacrificeSlot.setFillStyle(base.color);
 
       this.fuseBtn.setFillStyle(0xff8800).setInteractive({ useHandCursor: true });
