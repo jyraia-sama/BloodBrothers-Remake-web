@@ -17,6 +17,8 @@ export class MenuScene extends Phaser.Scene {
 
   preload() {
     this.load.image('menuBg', 'src/assets/images/menu_BBRW.jpg');
+    this.load.image('btnAventure', 'src/assets/menu/btn_aventure.png');
+    this.load.image('btnDeck', 'src/assets/menu/btn_deck.png');
   }
 
   create() {
@@ -36,6 +38,8 @@ export class MenuScene extends Phaser.Scene {
       bronzeBright: 0xc78b3c,
       danger: 0x711c28,
       dangerBright: 0xe33b4f,
+      crimson: 0x8a1a4a,
+      crimsonBright: 0xd6428f,
       background2: 0x10131d,
       darkGrey: 0x3a3f4b,
       gold: 0xd9a441
@@ -47,8 +51,8 @@ export class MenuScene extends Phaser.Scene {
       .setDepth(-10);
 
     // Titre
-    this.add.text(400, 58, 'BLOOD BROTHERS', {
-      fontSize: '34px',
+    this.add.text(400, 50, 'BLOOD BROTHERS', {
+      fontSize: '32px',
       color: '#e52b45',
       fontStyle: 'bold',
       stroke: '#320812',
@@ -56,9 +60,9 @@ export class MenuScene extends Phaser.Scene {
       shadow: { offsetX: 0, offsetY: 3, color: '#000000', blur: 8, stroke: true, fill: true }
     }).setOrigin(0.5);
 
-    this.add.rectangle(400, 88, 220, 2, COLORS.blood).setOrigin(0.5).setAlpha(0.8);
+    this.add.rectangle(400, 78, 220, 2, COLORS.blood).setOrigin(0.5).setAlpha(0.8);
 
-    this.add.text(400, 104, 'REMAKE WEB', {
+    this.add.text(400, 93, 'REMAKE WEB', {
       fontSize: '12px',
       color: '#e52b45',
       fontStyle: 'bold',
@@ -66,58 +70,62 @@ export class MenuScene extends Phaser.Scene {
     }).setOrigin(0.5);
 
     // Panneau des stats
-    this.add.rectangle(400, 135, 420, 44, COLORS.background2, 0.85)
+    this.add.rectangle(400, 121, 420, 40, COLORS.background2, 0.85)
       .setStrokeStyle(1, COLORS.darkGrey);
 
-    this.add.rectangle(205, 135, 3, 28, COLORS.gold);
-    this.add.rectangle(595, 135, 3, 28, COLORS.gold);
+    this.add.rectangle(205, 121, 3, 26, COLORS.gold);
+    this.add.rectangle(595, 121, 3, 26, COLORS.gold);
 
-    this.uiText = this.add.text(400, 128, '', {
+    this.uiText = this.add.text(400, 114, '', {
       fontSize: '13px',
       color: '#ffffff',
       fontStyle: 'bold'
     }).setOrigin(0.5);
 
-    this.timerText = this.add.text(400, 149, '', {
+    this.timerText = this.add.text(400, 133, '', {
       fontSize: '10px',
       color: '#d9a441'
     }).setOrigin(0.5);
 
     // --- Niveau de compte + barre de progression ---
-    this.accountText = this.add.text(400, 168, '', {
+    this.accountText = this.add.text(400, 150, '', {
       fontSize: '11px',
       color: '#7fd4ff',
       fontStyle: 'bold'
     }).setOrigin(0.5);
 
-    this.accountBarBg = this.add.rectangle(400, 182, 240, 6, 0x0d1018, 0.9)
+    this.accountBarBg = this.add.rectangle(400, 163, 240, 6, 0x0d1018, 0.9)
       .setStrokeStyle(1, COLORS.darkGrey);
-    this.accountBarFill = this.add.rectangle(280, 182, 1, 6, 0x4f9fd8).setOrigin(0, 0.5);
+    this.accountBarFill = this.add.rectangle(280, 163, 1, 6, 0x4f9fd8).setOrigin(0, 0.5);
 
-    // Boutons du menu
-    this.createMenuButton(400, 215, '🗺️', 'AVENTURE', '3 Actes', COLORS.blood, COLORS.bloodBright, () => {
+    // Boutons du menu (Aventure et Deck en bannière image ; les autres suivront)
+    this.createImageMenuButton(400, 200, 360, 60, 'btnAventure', () => {
       this.scene.start('ChapterSelectScene');
     });
 
-    this.createMenuButton(400, 288, '🛡️', 'GESTION DU DECK', 'Gérer vos cartes', COLORS.steel, COLORS.steelBright, () => {
+    this.createImageMenuButton(400, 263, 360, 60, 'btnDeck', () => {
       this.scene.start('DeckScene');
     });
 
-    this.createMenuButton(400, 361, '🔮', 'INVOCATIONS', 'Pacte mystique', COLORS.purple, COLORS.purpleBright, () => {
+    this.createMenuButton(400, 326, '🔮', 'INVOCATIONS', 'Pacte mystique', COLORS.purple, COLORS.purpleBright, () => {
       this.scene.start('GachaScene');
     });
 
-    this.createMenuButton(400, 434, '🔥', 'AUTEL DE FUSION', 'Fusionner vos cartes', COLORS.bronze, COLORS.bronzeBright, () => {
+    this.createMenuButton(400, 389, '🔥', 'AUTEL DE FUSION', 'Fusionner vos cartes', COLORS.bronze, COLORS.bronzeBright, () => {
       this.scene.start('FusionScene');
     });
 
-    this.createMenuButton(400, 507, '⚠️', 'EFFACER LA PARTIE', 'Réinitialiser votre progression', COLORS.danger, COLORS.dangerBright, () => {
+    this.createMenuButton(400, 452, '🩸', 'ÉCHOS SANGUINS', 'Équiper vos Échos', COLORS.crimson, COLORS.crimsonBright, () => {
+      this.scene.start('EchoScene');
+    });
+
+    // Range du bas : Effacer la partie + Mises à jour, côte à côte
+    this.createSmallActionButton(205, 517, 360, 'EFFACER LA PARTIE', COLORS.danger, COLORS.dangerBright, () => {
       resetGameData();
       this.scene.start('HeroSelectScene');
     });
 
-    // Boutons annexes (Mises à jour et Admin)
-    this.createUpdateButton(695, 570, () => {
+    this.createSmallActionButton(595, 517, 360, 'MISES À JOUR', 0x171b26, 0x292315, () => {
       this.showChangelogModal();
     });
 
@@ -293,6 +301,41 @@ export class MenuScene extends Phaser.Scene {
     btnBg.on('pointerdown', callback);
   }
 
+  /** Bouton de menu utilisant une image de bannière (déjà mise en forme par l'artiste) au lieu d'un rectangle dessiné. */
+  createImageMenuButton(x, y, width, height, imageKey, callback) {
+    const img = this.add.image(x, y, imageKey).setDisplaySize(width, height).setInteractive({ useHandCursor: true });
+    const baseScaleX = img.scaleX;
+    const baseScaleY = img.scaleY;
+
+    img.on('pointerover', () => {
+      this.tweens.add({ targets: img, scaleX: baseScaleX * 1.04, scaleY: baseScaleY * 1.04, duration: 100, ease: 'Power2' });
+    });
+    img.on('pointerout', () => {
+      this.tweens.add({ targets: img, scaleX: baseScaleX, scaleY: baseScaleY, duration: 100, ease: 'Power2' });
+    });
+    img.on('pointerdown', () => {
+      this.tweens.add({ targets: img, scaleX: baseScaleX * 0.97, scaleY: baseScaleY * 0.97, duration: 60, yoyo: true, ease: 'Power2' });
+      callback();
+    });
+
+    return img;
+  }
+
+  /** Petit bouton rectangulaire pour la range du bas (Effacer la partie / Mises à jour). */
+  createSmallActionButton(x, y, width, label, normalColor, hoverColor, callback) {
+    const btn = this.add.rectangle(x, y, width, 40, normalColor, 0.9).setStrokeStyle(1, normalColor).setInteractive({ useHandCursor: true });
+    const text = this.add.text(x, y, label, { fontSize: '13px', color: '#ffffff', fontStyle: 'bold' }).setOrigin(0.5);
+
+    btn.on('pointerover', () => btn.setFillStyle(hoverColor, 0.95));
+    btn.on('pointerout', () => btn.setFillStyle(normalColor, 0.9));
+    btn.on('pointerdown', () => {
+      this.tweens.add({ targets: [btn, text], scaleX: 0.97, scaleY: 0.97, duration: 60, yoyo: true, ease: 'Power2' });
+      callback();
+    });
+
+    return { btn, text };
+  }
+
   createMenuButton(x, y, icon, title, subtitle, normalColor, hoverColor, callback) {
     const container = this.add.container(x, y);
 
@@ -329,29 +372,6 @@ export class MenuScene extends Phaser.Scene {
       this.tweens.add({ targets: container, scaleX: 0.97, scaleY: 0.97, duration: 60, yoyo: true, ease: 'Power2' });
       callback();
     });
-  }
-
-  createUpdateButton(x, y, callback) {
-    const background = this.add.rectangle(x, y, 140, 32, 0x171b26, 0.95)
-      .setStrokeStyle(1, 0x6b5a2d)
-      .setInteractive({ useHandCursor: true });
-
-    const icon = this.add.text(x - 52, y, '📜', { fontSize: '13px' }).setOrigin(0.5);
-    const text = this.add.text(x + 8, y, 'MISES À JOUR', { fontSize: '10px', color: '#d9a441', fontStyle: 'bold' }).setOrigin(0.5);
-
-    background.on('pointerover', () => {
-      background.setFillStyle(0x292315, 1);
-      background.setStrokeStyle(1, 0xffd86b);
-      text.setColor('#ffdf82');
-    });
-
-    background.on('pointerout', () => {
-      background.setFillStyle(0x171b26, 0.95);
-      background.setStrokeStyle(1, 0x6b5a2d);
-      text.setColor('#d9a441');
-    });
-
-    background.on('pointerdown', callback);
   }
 
   showChangelogModal() {

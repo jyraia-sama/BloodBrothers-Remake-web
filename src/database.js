@@ -1,4 +1,5 @@
 import { SUMMON_POOL_DATABASE } from './scenes/SummonPoolData.js';
+import { ECHO_SETS, ECHO_SET_KEYS, getSlotById } from './EchoData.js';
 
 export const HEROES_DATABASE = {
   brute_noire: { name: 'La Brute Noire', race: 'Gorille', hp: 1400, maxHp: 1400, atk: 320, def: 110, agi: 60, wis: 50, color: 0x222222, rarity: 'SSR', element: 'tenebres', skill: { name: 'Frappe Brutale', chance: 0.35, type: 'damage_single', multiplier: 2.0 } },
@@ -20,53 +21,52 @@ export const UNITS_DATABASE = {
 //  ACTES & CHAPITRES
 // ============================================================
 
-const ACTS_CONFIG = [
-  {
-    id: 1,
-    title: 'Acte I : La Forêt Sombre',
-    bgColor: 0x112211,
-    bossUnit: 'gardien_foret',
-    baseGold: 100,   // récompense du chapitre 1 de cet acte
-    goldStep: 40      // augmentation par chapitre dans l'acte
-  },
-  {
-    id: 2,
-    title: 'Acte II : Le Donjon Maudit',
-    bgColor: 0x221122,
-    bossUnit: 'seigneur_donjon',
-    baseGold: 450,
-    goldStep: 90
-  },
-  {
-    id: 3,
-    title: 'Acte III : Le Cratère Volcanique',
-    bgColor: 0x331111,
-    bossUnit: 'boss', // Seigneur Démon : antagoniste final du jeu
-    baseGold: 1100,
-    goldStep: 180
-  }
-];
+// ------------------------------------------------------------
+//  Un Acte par Set d'Écho Sanguin. Chaque Acte compte 6
+//  chapitres ; le chapitre N loot toujours l'emplacement N
+//  (Chapitre 1 -> Slot 1, ..., Chapitre 6 -> Slot 6) du set
+//  de l'Acte.
+// ------------------------------------------------------------
+const ACT_THEME = {
+  violent: { title: 'Acte I : Terres Violentes', bgColor: 0x331100, bossUnit: 'gardien_foret', baseGold: 100, goldStep: 40 },
+  fatal: { title: 'Acte II : Domaine Fatal', bgColor: 0x220000, bossUnit: 'seigneur_donjon', baseGold: 300, goldStep: 60 },
+  swift: { title: 'Acte III : Vents Rapides', bgColor: 0x0a2233, bossUnit: 'chevalier_dechu', baseGold: 550, goldStep: 90 },
+  vampire: { title: 'Acte IV : Crypte Vampirique', bgColor: 0x220022, bossUnit: 'hydre_bicephale', baseGold: 850, goldStep: 120 },
+  energy: { title: "Acte V : Plaines d'Énergie", bgColor: 0x332200, bossUnit: 'vouivre_ecarlate', baseGold: 1200, goldStep: 160 },
+  guard: { title: 'Acte VI : Bastion de Garde', bgColor: 0x1a2a33, bossUnit: 'seigneur_des_cendres', baseGold: 1600, goldStep: 210 },
+  shield: { title: 'Acte VII : Sanctuaire du Bouclier', bgColor: 0x33301a, bossUnit: 'boss', baseGold: 2100, goldStep: 260 }
+};
 
-const CHAPTERS_PER_ACT = 8;
+const ACTS_CONFIG = ECHO_SET_KEYS.map((setKey, index) => ({
+  id: index + 1,
+  setKey,
+  title: ACT_THEME[setKey].title,
+  bgColor: ACT_THEME[setKey].bgColor,
+  bossUnit: ACT_THEME[setKey].bossUnit,
+  baseGold: ACT_THEME[setKey].baseGold,
+  goldStep: ACT_THEME[setKey].goldStep
+}));
+
+const CHAPTERS_PER_ACT = 6;
 const BRANCH_START_CHAPTER = 4; // à partir de ce chapitre (dans chaque acte), embranchements
 
 // ------------------------------------------------------------
-//  Répartition des ennemis de zone (hors BOSS) sur les 24
-//  chapitres : 6 paliers de difficulté croissante, indépendants
-//  des Actes pour que la courbe reste continue sur tout le jeu.
+//  Répartition des ennemis de zone (hors BOSS) : un palier de
+//  difficulté par Acte (le 7e Acte réutilise le palier le plus
+//  fort, faute d'un 7e palier dédié).
 // ------------------------------------------------------------
-const ENEMY_TIERS = [
-  { maxChapter: 4, keys: ['squelette', 'gobelin_maraudeur', 'loup_affame', 'rat_corrompu'] },
-  { maxChapter: 8, keys: ['zombie_enrage', 'brigand_cagoule', 'araignee_geante'] },
-  { maxChapter: 12, keys: ['demon_inf', 'golem_fissure', 'harpie_sanglante', 'ombre_rampante'] },
-  { maxChapter: 16, keys: ['spectre_vengeur', 'troll_cavernes', 'cyclope_furieux'] },
-  { maxChapter: 20, keys: ['demon_mineur', 'liche_novice', 'gargouille_jade'] },
-  { maxChapter: 24, keys: ['chevalier_dechu', 'hydre_bicephale', 'vouivre_ecarlate'] }
+const ENEMY_TIER_POOLS = [
+  ['squelette', 'gobelin_maraudeur', 'loup_affame', 'rat_corrompu'],
+  ['zombie_enrage', 'brigand_cagoule', 'araignee_geante'],
+  ['demon_inf', 'golem_fissure', 'harpie_sanglante', 'ombre_rampante'],
+  ['spectre_vengeur', 'troll_cavernes', 'cyclope_furieux'],
+  ['demon_mineur', 'liche_novice', 'gargouille_jade'],
+  ['chevalier_dechu', 'hydre_bicephale', 'vouivre_ecarlate']
 ];
 
-function getEnemyPoolForChapter(globalChapterId) {
-  const tier = ENEMY_TIERS.find(t => globalChapterId <= t.maxChapter) || ENEMY_TIERS[ENEMY_TIERS.length - 1];
-  return tier.keys;
+function getEnemyPoolForAct(actId) {
+  const tierIndex = Math.min(actId, ENEMY_TIER_POOLS.length) - 1;
+  return ENEMY_TIER_POOLS[tierIndex];
 }
 
 const GOLD_TILE = { type: 'gold', label: 'Trésor', color: 0xddaa00 };
@@ -175,24 +175,33 @@ function buildTiles(chapterNum) {
   return tiles;
 }
 
-export const ACTS_DATABASE = ACTS_CONFIG.map(act => ({
-  ...act,
-  chapters: Array.from({ length: CHAPTERS_PER_ACT }, (_, i) => {
-    const chapterNum = i + 1;
-    const globalId = (act.id - 1) * CHAPTERS_PER_ACT + chapterNum; // id global unique : 1 à 24
-    return {
-      id: globalId,
-      actId: act.id,
-      chapterNum,
-      title: `${act.title} – Chapitre ${chapterNum}`,
-      bgColor: act.bgColor,
-      enemyPool: getEnemyPoolForChapter(globalId),
-      bossUnit: act.bossUnit,
-      rewardGold: act.baseGold + act.goldStep * (chapterNum - 1),
-      tiles: buildTiles(chapterNum)
-    };
-  })
-}));
+export const ACTS_DATABASE = ACTS_CONFIG.map(act => {
+  const setDef = ECHO_SETS[act.setKey];
+  return {
+    ...act,
+    setName: setDef.name,
+    setDescription: setDef.description,
+    chapters: Array.from({ length: CHAPTERS_PER_ACT }, (_, i) => {
+      const chapterNum = i + 1;
+      const globalId = (act.id - 1) * CHAPTERS_PER_ACT + chapterNum; // id global unique : 1 à 42
+      const slot = getSlotById(chapterNum);
+      return {
+        id: globalId,
+        actId: act.id,
+        chapterNum,
+        title: `${act.title} – Chapitre ${chapterNum}`,
+        bgColor: act.bgColor,
+        enemyPool: getEnemyPoolForAct(act.id),
+        bossUnit: act.bossUnit,
+        rewardGold: act.baseGold + act.goldStep * (chapterNum - 1),
+        echoSet: act.setKey,
+        echoSlot: chapterNum,
+        dropText: `Loot possible : ${slot.name} du set ${setDef.name}`,
+        tiles: buildTiles(chapterNum)
+      };
+    })
+  };
+});
 
 // Liste à plat de tous les chapitres (recherche directe par id global)
 export const CHAPTERS_DATABASE = ACTS_DATABASE.flatMap(act => act.chapters);

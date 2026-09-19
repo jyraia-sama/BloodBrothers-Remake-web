@@ -1,5 +1,33 @@
 export const CHANGELOG_DATA = [
   {
+    date: "19/09/2026",
+    points: [
+      "Ajout du système d'Équipement Échos Sanguins : 6 emplacements par unité, rareté à substats, amélioration +1 à +15, et 7 Sets d'ensemble (Violent, Swift, Fatal, Vampire, Energy, Guard, Shield).",
+      "Nouveau menu ÉCHOS SANGUINS dédié : choix du héros, puis équipement/amélioration/vente des Échos avec filtres par Set, Slot et rareté.",
+      "Aventure entièrement refaite : 7 Actes (un par Set d'Écho) de 6 chapitres chacun ; chaque chapitre loot un emplacement précis, indiqué dans l'interface.",
+      "Fin de combat : trois boutons (Rejouer, Continuer, Choix du chapitre) remplacent la transition automatique.",
+      "Autel d'Invocation : ajout d'un pack x10 pour les deux pactes, avec grille des unités obtenues et inspection individuelle des statistiques.",
+      "Autel d'Invocation : affichage des taux de drop réels (%) pour chaque rareté, sur les deux pactes.",
+      "Gestion du Deck : vente groupée de plusieurs cartes non équipées en une fois (sélection par case à cocher).",
+      "Gestion du Deck : repositionnement des étiquettes Avant/Arrière pour ne plus chevaucher le nom des cartes.",
+      "Gestion du Deck : la position de défilement de la réserve n'est plus réinitialisée après une vente.",
+      "Autel de Fusion : la rareté s'affiche désormais sur la carte choisie comme unité Principale.",
+      "Correction : sur les écrans à défilement (Deck, Échos Sanguins, Fusion, Aventure), les boutons fixes (retour, emplacements) étaient parfois cliqués par erreur par du contenu défilé invisible.",
+      "Correction : le menu déroulant de sélection ne validait pas toujours le choix effectué."
+    ]
+  },
+  {
+    date: "18/09/2026",
+    points: [
+      "Ajout d'un système élémentaire (Feu, Nature, Eau, Ténèbres, Sacré) en cycle : +25% de dégâts en avantage, -20% en désavantage.",
+      "Chaque héros et monstre possède désormais un élément, visible sur les cartes (Deck, Fusion, Invocation) et en combat.",
+      "Ajout du positionnement d'équipe Avant/Arrière : les 2 premières cartes du deck sont ciblées en priorité par l'adversaire.",
+      "Gestion du Deck : ajout de flèches pour réorganiser l'ordre des cartes équipées (et donc leur position Avant/Arrière).",
+      "Combat de BOSS : le boss est désormais placé en Arrière, protégé par deux sbires en Avant.",
+      "Ajout de 4 nouveaux monstres : Lapin Pyromane (SR, Feu), Chat des Abysses (SSR, Eau), Chien Sylvestre (SSR, Nature), Cheval Céleste (UR, Sacré)."
+    ]
+  },
+  {
     date: "17/09/2026",
     points: [
       "Gestion du Deck : la réserve/inventaire défile désormais (molette ou flèches) lorsqu'elle dépasse l'écran.",

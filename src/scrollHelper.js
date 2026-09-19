@@ -32,6 +32,17 @@ export function makeScrollable(scene, container, viewport, contentHeight, option
     applyScroll();
   };
 
+  const setScroll = (value) => {
+    scrollY = Phaser.Math.Clamp(value, 0, maxScroll);
+    applyScroll();
+  };
+
+  const getScroll = () => scrollY;
+
+  if (options.initialScroll) {
+    setScroll(options.initialScroll);
+  }
+
   let onWheel = null;
   let arrowUp = null;
   let arrowDown = null;
@@ -73,5 +84,5 @@ export function makeScrollable(scene, container, viewport, contentHeight, option
 
   scene.events.once('shutdown', destroy);
 
-  return { scrollBy, maxScroll, destroy };
+  return { scrollBy, setScroll, getScroll, maxScroll, destroy };
 }

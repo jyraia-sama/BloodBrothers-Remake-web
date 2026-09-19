@@ -1,4 +1,4 @@
-import { PLAYER_DATA, saveGameData, getInstanceById } from '../saveSystem.js';
+import { PLAYER_DATA, saveGameData, getInstanceById, unequipEchoesForUnit } from '../saveSystem.js';
 import { UNITS_DATABASE } from '../database.js';
 import { getInstanceStats, getLevelProgress, xpForNextLevel, MAX_LEVEL, getSellPrice, describeSkill } from '../levelSystem.js';
 import { makeScrollable } from '../scrollHelper.js';
@@ -13,8 +13,8 @@ export class DeckScene extends Phaser.Scene {
 
   create() {
     this.add.text(400, 35, 'GESTION DU DECK', { fontSize: '26px', color: '#3355aa', fontStyle: 'bold' }).setOrigin(0.5);
-    const backBtn = this.add.rectangle(70, 30, 100, 30, 0x444455).setInteractive({ useHandCursor: true }).setStrokeStyle(1, 0xffffff);
-    this.add.text(70, 30, '‹ Menu', { fontSize: '14px', color: '#ffffff' }).setOrigin(0.5);
+    const backBtn = this.add.rectangle(70, 30, 100, 30, 0x444455).setInteractive({ useHandCursor: true }).setStrokeStyle(1, 0xffffff).setDepth(50);
+    this.add.text(70, 30, '‹ Menu', { fontSize: '14px', color: '#ffffff' }).setOrigin(0.5).setDepth(51);
     backBtn.on('pointerdown', () => this.scene.start('MenuScene'));
 
     this.goldText = this.add.text(700, 30, `💰 ${PLAYER_DATA.gold}`, { fontSize: '15px', color: '#ffdd00', fontStyle: 'bold' }).setOrigin(0.5);
@@ -22,6 +22,7 @@ export class DeckScene extends Phaser.Scene {
     this.infoText = this.add.text(400, 70, 'Cliquez sur une carte pour la transférer | Survolez un sort pour le détailler', { fontSize: '13px', color: '#aaaaaa' }).setOrigin(0.5);
 
     this.inventoryScroll = null;
+    this.selectedForSale = new Set();
     this.tooltip = this.createTooltip();
 
     this.renderDeck();
@@ -72,7 +73,7 @@ export class DeckScene extends Phaser.Scene {
 
   renderDeck() {
     if (this.deckContainer) this.deckContainer.destroy();
-    this.deckContainer = this.add.container(0, 0);
+    this.deckContainer = this.add.container(0, 0).setDepth(20);
     this.deckContainer.add(this.add.text(400, 105, `ÉQUIPE ÉQUIPÉE (${PLAYER_DATA.deck.length}/5)`, { fontSize: '15px', color: '#00ff00', fontStyle: 'bold' }).setOrigin(0.5));
 
     PLAYER_DATA.deck.forEach((instanceId, index) => {
@@ -84,14 +85,15 @@ export class DeckScene extends Phaser.Scene {
       const x = 150 + index * 125, y = 178;
 
       const card = this.add.rectangle(x, y, 92, 112, base.color).setStrokeStyle(2, 0xffffff).setInteractive({ useHandCursor: true });
-      const nameText = this.add.text(x, y - 39, base.name.split(' ')[0], { fontSize: '11px', color: '#fff' }).setOrigin(0.5);
-      const lvlText = this.add.text(x, y - 24, `Nv. ${instance.level}`, { fontSize: '11px', color: '#00ffaa', fontStyle: 'bold' }).setOrigin(0.5);
 
       const isFront = index < FRONT_ROW_SIZE;
-      const posText = this.add.text(x - 28, y - 39, isFront ? 'AV' : 'AR', {
-        fontSize: '9px', color: isFront ? '#ff8888' : '#88aaff', fontStyle: 'bold'
+      const elementIcon = ELEMENT_ICONS[base.element] || '';
+      const tagText = this.add.text(x - 18, y - 49, `${isFront ? 'AV' : 'AR'} ${elementIcon}`, {
+        fontSize: '10px', color: isFront ? '#ff8888' : '#88aaff', fontStyle: 'bold'
       }).setOrigin(0.5);
-      const elementText = this.add.text(x + 28, y - 39, ELEMENT_ICONS[base.element] || '', { fontSize: '13px' }).setOrigin(0.5);
+
+      const nameText = this.add.text(x, y - 39, base.name.split(' ')[0], { fontSize: '11px', color: '#fff' }).setOrigin(0.5);
+      const lvlText = this.add.text(x, y - 24, `Nv. ${instance.level}`, { fontSize: '11px', color: '#00ffaa', fontStyle: 'bold' }).setOrigin(0.5);
 
       const atkText = this.add.text(x, y - 8, `ATK:${stats.atk}`, { fontSize: '10px', color: '#ffdd00' }).setOrigin(0.5);
       const wisText = this.add.text(x, y + 6, `WIS:${stats.wis}`, { fontSize: '10px', color: '#00ffff' }).setOrigin(0.5);
@@ -111,7 +113,7 @@ export class DeckScene extends Phaser.Scene {
         this.renderInventory();
       });
 
-      this.deckContainer.add([card, nameText, lvlText, posText, elementText, atkText, wisText, infoBtn, infoLabel]);
+      this.deckContainer.add([card, tagText, nameText, lvlText, atkText, wisText, infoBtn, infoLabel]);
       this.drawXpBar(this.deckContainer, x, y + 36, 76, instance);
 
       // --- Flèches de réorganisation (changent l'ordre Avant/Arrière) ---
@@ -153,7 +155,9 @@ export class DeckScene extends Phaser.Scene {
   }
 
   renderInventory() {
-    // Nettoyage de l'ancien défilement avant reconstruction (évite les doublons d'écouteurs)
+    // Nettoyage de l'ancien défilement avant reconstruction (évite les doublons d'écouteurs),
+    // en conservant la position de défilement pour ne pas remonter tout en haut.
+    const previousScroll = this.inventoryScroll ? this.inventoryScroll.getScroll() : 0;
     if (this.inventoryScroll) {
       this.inventoryScroll.destroy();
       this.inventoryScroll = null;
@@ -184,6 +188,31 @@ export class DeckScene extends Phaser.Scene {
       const lvlText = this.add.text(x, y - 23, `Nv. ${instance.level}`, { fontSize: '10px', color: isEquipped ? '#888888' : '#00ffaa' }).setOrigin(0.5);
       const rarityText = this.add.text(x, y - 8, `[${base.rarity}]`, { fontSize: '11px', color: isEquipped ? '#888888' : '#ffdd00' }).setOrigin(0.5);
       const elementText = this.add.text(x - 29, y - 42, ELEMENT_ICONS[base.element] || '', { fontSize: '12px' }).setOrigin(0.5);
+
+      let checkbox = null;
+      if (!isEquipped) {
+        checkbox = this.add.rectangle(x - 34, y - 8, 14, 14, 0x000000, 0.5)
+          .setStrokeStyle(1, this.selectedForSale.has(instance.instanceId) ? 0x00ff88 : 0xaaaaaa)
+          .setInteractive({ useHandCursor: true });
+        const checkMark = this.add.text(x - 34, y - 8, '✓', { fontSize: '11px', color: '#00ff88', fontStyle: 'bold' })
+          .setOrigin(0.5).setVisible(this.selectedForSale.has(instance.instanceId));
+
+        checkbox.on('pointerdown', (pointer) => {
+          pointer.event.stopPropagation();
+          if (this.selectedForSale.has(instance.instanceId)) {
+            this.selectedForSale.delete(instance.instanceId);
+            checkMark.setVisible(false);
+            checkbox.setStrokeStyle(1, 0xaaaaaa);
+          } else {
+            this.selectedForSale.add(instance.instanceId);
+            checkMark.setVisible(true);
+            checkbox.setStrokeStyle(1, 0x00ff88);
+          }
+          this.renderSellBar();
+        });
+
+        this.inventoryContainer.add([checkbox, checkMark]);
+      }
 
       const infoBtn = this.add.circle(x + 29, y - 42, 10, 0x111111).setStrokeStyle(1, 0xffffff).setInteractive({ useHandCursor: true });
       const infoLabel = this.add.text(x + 29, y - 42, '?', { fontSize: '10px', color: '#fff' }).setOrigin(0.5);
@@ -233,7 +262,67 @@ export class DeckScene extends Phaser.Scene {
     // --- Défilement si le contenu dépasse la zone visible ---
     const rows = Math.max(1, Math.ceil(PLAYER_DATA.inventory.length / COLS));
     const contentHeight = rows * ROW_HEIGHT + 20;
-    this.inventoryScroll = makeScrollable(this, this.inventoryContainer, INVENTORY_VIEWPORT, contentHeight);
+    this.inventoryScroll = makeScrollable(this, this.inventoryContainer, INVENTORY_VIEWPORT, contentHeight, { initialScroll: previousScroll });
+
+    // Retire de la sélection toute carte qui n'existe plus (vendue, fusionnée...)
+    const validIds = new Set(PLAYER_DATA.inventory.map(i => i.instanceId));
+    this.selectedForSale.forEach(id => { if (!validIds.has(id)) this.selectedForSale.delete(id); });
+    this.renderSellBar();
+  }
+
+  /** Affiche (ou masque) la barre "Vendre la sélection", selon le nombre de cartes cochées. */
+  renderSellBar() {
+    if (this.sellBarObjects) this.sellBarObjects.forEach(o => o.destroy());
+    this.sellBarObjects = [];
+
+    const count = this.selectedForSale.size;
+    if (count === 0) return;
+
+    let total = 0;
+    this.selectedForSale.forEach(id => {
+      const inst = getInstanceById(id);
+      if (inst) total += getSellPrice(UNITS_DATABASE[inst.unitKey]);
+    });
+
+    const sellBtn = this.add.rectangle(628, 250, 170, 24, 0x552222).setStrokeStyle(1, 0xaa4444).setInteractive({ useHandCursor: true }).setDepth(50);
+    const sellLabel = this.add.text(628, 250, `🗑️ Vendre ${count} (${total} Or)`, { fontSize: '10px', color: '#ffcccc', fontStyle: 'bold' }).setOrigin(0.5).setDepth(51);
+    sellBtn.on('pointerover', () => sellBtn.setFillStyle(0x772a2a));
+    sellBtn.on('pointerout', () => sellBtn.setFillStyle(0x552222));
+    sellBtn.on('pointerdown', () => this.sellSelected());
+
+    const clearBtn = this.add.text(722, 250, '✕', { fontSize: '13px', color: '#ff8888', fontStyle: 'bold' }).setOrigin(0.5).setInteractive({ useHandCursor: true }).setDepth(51);
+    clearBtn.on('pointerdown', () => {
+      this.selectedForSale.clear();
+      this.renderInventory();
+    });
+
+    this.sellBarObjects.push(sellBtn, sellLabel, clearBtn);
+  }
+
+  /** Vend en une fois toutes les cartes cochées. */
+  sellSelected() {
+    let total = 0;
+    let count = 0;
+
+    this.selectedForSale.forEach(id => {
+      if (PLAYER_DATA.deck.includes(id)) return; // sécurité : jamais une carte équipée
+      const idx = PLAYER_DATA.inventory.findIndex(i => i.instanceId === id);
+      if (idx === -1) return;
+
+      const base = UNITS_DATABASE[PLAYER_DATA.inventory[idx].unitKey];
+      total += getSellPrice(base);
+      unequipEchoesForUnit(id);
+      PLAYER_DATA.inventory.splice(idx, 1);
+      count++;
+    });
+
+    PLAYER_DATA.gold += total;
+    this.selectedForSale.clear();
+    saveGameData();
+
+    this.goldText.setText(`💰 ${PLAYER_DATA.gold}`);
+    this.infoText.setText(`${count} cartes vendues pour ${total} Or.`).setColor('#ffdd00');
+    this.renderInventory();
   }
 
   /** Vend définitivement une carte non équipée contre de l'or. */
@@ -246,6 +335,7 @@ export class DeckScene extends Phaser.Scene {
     const idx = PLAYER_DATA.inventory.findIndex(i => i.instanceId === instance.instanceId);
     if (idx === -1) return;
 
+    unequipEchoesForUnit(instance.instanceId);
     PLAYER_DATA.inventory.splice(idx, 1);
     PLAYER_DATA.gold += price;
     saveGameData();

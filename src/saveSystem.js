@@ -3,6 +3,11 @@ import { createUnitInstance, maxStaminaForAccountLevel } from './levelSystem.js'
 const SAVE_KEY = 'BLOOD_BROTHERS_SAVE_V2';
 const STAMINA_REGEN_INTERVAL = 5 * 60 * 1000;
 
+// Incrémenté à chaque refonte structurelle de l'Aventure (Actes/Chapitres).
+// Une sauvegarde d'une version antérieure voit sa progression de chapitre
+// réinitialisée (son or, ses cartes et ses Échos sont conservés).
+const CONTENT_VERSION = 2;
+
 function buildDefaultData() {
   const starters = ['archer', 'mage', 'clerc'].map(key => createUnitInstance(key));
 
@@ -19,7 +24,9 @@ function buildDefaultData() {
     currentChapter: 1,
     currentTileId: 0,
     inventory: starters,                          // tableau d'instances
-    deck: starters.map(inst => inst.instanceId)   // tableau d'instanceId
+    deck: starters.map(inst => inst.instanceId),  // tableau d'instanceId
+    echoInventory: [],                            // tableau d'Échos Sanguins possédés
+    contentVersion: CONTENT_VERSION
   };
 }
 
@@ -37,6 +44,19 @@ export function loadGameData() {
   }
   if (data.summonShards === undefined) {
     data.summonShards = 0;
+  }
+  if (!Array.isArray(data.echoInventory)) {
+    data.echoInventory = [];
+  }
+
+  // --- Migration : refonte de l'Aventure (Actes/Chapitres liés aux Échos) ---
+  // La progression de chapitre n'a plus le même sens ; on la réinitialise
+  // sans toucher à l'or, aux cartes ni aux Échos déjà possédés.
+  if (data.contentVersion !== CONTENT_VERSION) {
+    data.unlockedChapter = 1;
+    data.currentChapter = 1;
+    data.currentTileId = 0;
+    data.contentVersion = CONTENT_VERSION;
   }
 
   // --- Migration : inventaire de cles -> inventaire d'instances ---
@@ -165,6 +185,23 @@ export function getDeckInstances() {
   return PLAYER_DATA.deck
     .map(id => getInstanceById(id))
     .filter(Boolean);
+}
+
+/** Retrouve un Écho Sanguin possédé par son echoId. */
+export function getEchoById(echoId) {
+  return PLAYER_DATA.echoInventory.find(e => e.echoId === echoId);
+}
+
+/** Les Échos actuellement équipés sur une unité donnée (jusqu'à 6). */
+export function getEquippedEchoes(instanceId) {
+  return PLAYER_DATA.echoInventory.filter(e => e.equippedTo === instanceId);
+}
+
+/** Déséquipe tous les Échos d'une unité (à appeler avant de vendre/fusionner cette unité). */
+export function unequipEchoesForUnit(instanceId) {
+  PLAYER_DATA.echoInventory.forEach(e => {
+    if (e.equippedTo === instanceId) e.equippedTo = null;
+  });
 }
 
 export const PLAYER_DATA = loadGameData();

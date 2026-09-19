@@ -434,5 +434,10 @@ export const SUMMON_POOL_DATABASE = {
     name: 'Seigneur du Donjon Maudit', hp: 1950, maxHp: 1950, atk: 310, def: 210, agi: 150, wis: 150,
     color: 0x441144, rarity: 'SSR', element: 'tenebres',
     skill: { name: 'Jugement du Donjon', chance: 0.35, type: 'damage_single', multiplier: 2.2 }
+  },
+  seigneur_des_cendres: {
+    name: 'Seigneur des Cendres', hp: 2100, maxHp: 2100, atk: 330, def: 230, agi: 160, wis: 170,
+    color: 0x552200, rarity: 'SSR', element: 'tenebres',
+    skill: { name: 'Cendres Ardentes', chance: 0.35, type: 'damage_aoe', multiplier: 1.2 }
   }
 };
