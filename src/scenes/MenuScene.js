@@ -11,6 +11,9 @@ import { CHANGELOG_DATA } from './ChangelogData.js';
 import { GUIDE_SECTIONS } from '../GuideData.js';
 import { getAccountProgress, accountXpForNextLevel, MAX_ACCOUNT_LEVEL } from '../levelSystem.js';
 import { makeScrollable } from '../scrollHelper.js';
+import { ITEM_KEYS, getSetEssenceKey } from '../ItemData.js';
+import { ECHO_SET_KEYS } from '../EchoData.js';
+import { FRAGMENT_ELIGIBLE_KEYS } from '../database.js';
 
 export class MenuScene extends Phaser.Scene {
 
@@ -155,6 +158,7 @@ export class MenuScene extends Phaser.Scene {
     if (typeof PLAYER_DATA.adminGoldActive === 'undefined') PLAYER_DATA.adminGoldActive = false;
     if (typeof PLAYER_DATA.adminStaminaActive === 'undefined') PLAYER_DATA.adminStaminaActive = false;
     if (typeof PLAYER_DATA.adminBuffActive === 'undefined') PLAYER_DATA.adminBuffActive = false;
+    if (typeof PLAYER_DATA.adminItemsActive === 'undefined') PLAYER_DATA.adminItemsActive = false;
 
     if (PLAYER_DATA.adminGoldActive) {
       PLAYER_DATA.gold = Number.MAX_SAFE_INTEGER;
@@ -162,6 +166,17 @@ export class MenuScene extends Phaser.Scene {
     if (PLAYER_DATA.adminStaminaActive) {
       PLAYER_DATA.stamina = PLAYER_DATA.maxStamina;
     }
+    if (PLAYER_DATA.adminItemsActive) {
+      this.fillAllItemsToInfinite();
+    }
+  }
+
+  /** Remet tous les objets du Reliquaire (objets, Essences de Set, Fragments) à une quantité très élevée. */
+  fillAllItemsToInfinite() {
+    const INFINITE_QTY = 9999;
+    ITEM_KEYS.forEach(key => { PLAYER_DATA.items[key] = INFINITE_QTY; });
+    ECHO_SET_KEYS.forEach(setKey => { PLAYER_DATA.items[getSetEssenceKey(setKey)] = INFINITE_QTY; });
+    FRAGMENT_ELIGIBLE_KEYS.forEach(heroKey => { PLAYER_DATA.heroFragments[heroKey] = INFINITE_QTY; });
   }
 
   showAdminModal() {
@@ -173,7 +188,7 @@ export class MenuScene extends Phaser.Scene {
     this.modalContainer.setDepth(150);
 
     const overlay = this.add.rectangle(400, 300, 800, 600, 0x000000, 0.85).setInteractive();
-    const panel = this.add.rectangle(400, 305, 480, 440, 0x10131d).setStrokeStyle(2, 0xe52b45);
+    const panel = this.add.rectangle(400, 330, 480, 500, 0x10131d).setStrokeStyle(2, 0xe52b45);
 
     this.add.rectangle(400, 160, 400, 2, 0x9e1b32);
 
@@ -250,9 +265,42 @@ export class MenuScene extends Phaser.Scene {
     cbBuffBg.on('pointerdown', toggleBuff);
     lblBuff.setInteractive({ useHandCursor: true }).on('pointerdown', toggleBuff);
 
+    // --- Objets infinis (Reliquaire) ---
+    const cbItemsBg = this.add.rectangle(230, 335, 24, 24, 0x252a38).setStrokeStyle(2, 0x9da3b0).setInteractive({ useHandCursor: true });
+    const cbItemsCheck = this.add.text(230, 335, '✓', { fontSize: '16px', color: '#ffd86b', fontStyle: 'bold' }).setOrigin(0.5);
+    cbItemsCheck.setVisible(!!PLAYER_DATA.adminItemsActive);
+
+    const lblItems = this.add.text(260, 335, 'Objets infinis (Reliquaire)', { fontSize: '13px', color: '#ffffff' }).setOrigin(0, 0.5);
+
+    const toggleItems = () => {
+      PLAYER_DATA.adminItemsActive = !PLAYER_DATA.adminItemsActive;
+      cbItemsCheck.setVisible(PLAYER_DATA.adminItemsActive);
+
+      if (PLAYER_DATA.adminItemsActive) {
+        // Sauvegarde l'état avant triche, pour pouvoir le restaurer
+        PLAYER_DATA.itemsBeforeAdminCheat = JSON.parse(JSON.stringify(PLAYER_DATA.items));
+        PLAYER_DATA.heroFragmentsBeforeAdminCheat = JSON.parse(JSON.stringify(PLAYER_DATA.heroFragments));
+      } else {
+        if (PLAYER_DATA.itemsBeforeAdminCheat !== undefined) {
+          PLAYER_DATA.items = PLAYER_DATA.itemsBeforeAdminCheat;
+          delete PLAYER_DATA.itemsBeforeAdminCheat;
+        }
+        if (PLAYER_DATA.heroFragmentsBeforeAdminCheat !== undefined) {
+          PLAYER_DATA.heroFragments = PLAYER_DATA.heroFragmentsBeforeAdminCheat;
+          delete PLAYER_DATA.heroFragmentsBeforeAdminCheat;
+        }
+      }
+
+      this.applyAdminCheats();
+      saveGameData();
+      this.updateUI();
+    };
+    cbItemsBg.on('pointerdown', toggleItems);
+    lblItems.setInteractive({ useHandCursor: true }).on('pointerdown', toggleItems);
+
     // --- Effacer la partie (déplacé ici depuis le menu principal) ---
-    const resetBtn = this.add.rectangle(400, 340, 320, 36, 0x711c28).setInteractive({ useHandCursor: true }).setStrokeStyle(1, 0xe33b4f);
-    const resetText = this.add.text(400, 340, '⚠️ EFFACER LA PARTIE', { fontSize: '13px', color: '#ffffff', fontStyle: 'bold' }).setOrigin(0.5);
+    const resetBtn = this.add.rectangle(400, 385, 320, 36, 0x711c28).setInteractive({ useHandCursor: true }).setStrokeStyle(1, 0xe33b4f);
+    const resetText = this.add.text(400, 385, '⚠️ EFFACER LA PARTIE', { fontSize: '13px', color: '#ffffff', fontStyle: 'bold' }).setOrigin(0.5);
 
     resetBtn.on('pointerover', () => resetBtn.setFillStyle(0xe33b4f));
     resetBtn.on('pointerout', () => resetBtn.setFillStyle(0x711c28));
@@ -262,10 +310,10 @@ export class MenuScene extends Phaser.Scene {
     });
 
     // --- Export / Import de sauvegarde ---
-    const ioResultText = this.add.text(400, 452, '', { fontSize: '11px', color: '#88ff88', align: 'center', wordWrap: { width: 420 } }).setOrigin(0.5);
+    const ioResultText = this.add.text(400, 497, '', { fontSize: '11px', color: '#88ff88', align: 'center', wordWrap: { width: 420 } }).setOrigin(0.5);
 
-    const exportBtn = this.add.rectangle(400, 380, 320, 34, 0x1a3a5a).setInteractive({ useHandCursor: true }).setStrokeStyle(1, 0x4f81a8);
-    const exportText = this.add.text(400, 380, '📤 Exporter la sauvegarde', { fontSize: '12px', color: '#ffffff', fontStyle: 'bold' }).setOrigin(0.5);
+    const exportBtn = this.add.rectangle(400, 425, 320, 34, 0x1a3a5a).setInteractive({ useHandCursor: true }).setStrokeStyle(1, 0x4f81a8);
+    const exportText = this.add.text(400, 425, '📤 Exporter la sauvegarde', { fontSize: '12px', color: '#ffffff', fontStyle: 'bold' }).setOrigin(0.5);
     exportBtn.on('pointerover', () => exportBtn.setFillStyle(0x2a5a8a));
     exportBtn.on('pointerout', () => exportBtn.setFillStyle(0x1a3a5a));
     exportBtn.on('pointerdown', () => {
@@ -273,8 +321,8 @@ export class MenuScene extends Phaser.Scene {
       ioResultText.setText('Sauvegarde téléchargée.').setColor('#88ff88');
     });
 
-    const importBtn = this.add.rectangle(400, 418, 320, 34, 0x3a2a1a).setInteractive({ useHandCursor: true }).setStrokeStyle(1, 0xc78b3c);
-    const importText = this.add.text(400, 418, '📥 Importer une sauvegarde', { fontSize: '12px', color: '#ffffff', fontStyle: 'bold' }).setOrigin(0.5);
+    const importBtn = this.add.rectangle(400, 463, 320, 34, 0x3a2a1a).setInteractive({ useHandCursor: true }).setStrokeStyle(1, 0xc78b3c);
+    const importText = this.add.text(400, 463, '📥 Importer une sauvegarde', { fontSize: '12px', color: '#ffffff', fontStyle: 'bold' }).setOrigin(0.5);
     importBtn.on('pointerover', () => importBtn.setFillStyle(0x5a3a1a));
     importBtn.on('pointerout', () => importBtn.setFillStyle(0x3a2a1a));
     importBtn.on('pointerdown', () => {
@@ -289,11 +337,11 @@ export class MenuScene extends Phaser.Scene {
       });
     });
 
-    const closeBtn = this.add.rectangle(400, 490, 140, 35, 0x252a38)
+    const closeBtn = this.add.rectangle(400, 535, 140, 35, 0x252a38)
       .setInteractive({ useHandCursor: true })
       .setStrokeStyle(1, 0x9da3b0);
 
-    const closeText = this.add.text(400, 490, 'FERMER', {
+    const closeText = this.add.text(400, 535, 'FERMER', {
       fontSize: '12px',
       color: '#ffffff',
       fontStyle: 'bold'
@@ -323,6 +371,7 @@ export class MenuScene extends Phaser.Scene {
       cbGoldBg, cbGoldCheck, lblGold,
       cbStaminaBg, cbStaminaCheck, lblStamina,
       cbBuffBg, cbBuffCheck, lblBuff,
+      cbItemsBg, cbItemsCheck, lblItems,
       resetBtn, resetText,
       exportBtn, exportText, importBtn, importText, ioResultText,
       closeBtn, closeText
