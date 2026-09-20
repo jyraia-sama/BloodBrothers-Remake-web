@@ -1,5 +1,18 @@
 export const CHANGELOG_DATA = [
   {
+    date: "20/09/2026",
+    points: [
+      "Le jeu est renommé \"Brothers of Legacy: Tears and Blood\".",
+      "Ajout du Reliquaire : Poussière d'Écho et Atelier de fabrication, Pierre de Reforge, Sceau de Verrouillage, Billet de Pacte, Fragments de Héros, Essences de Set, Coffres de Butin, Tome d'XP, Élixir de Stamina.",
+      "Ces objets sont désormais lootables en jeu : sur les combats de boss (Reforge, Sceau, Billet, Tome, Élixir), liés au chapitre visité (Essence de Set), sur les boss de la Tour/du Mode Cauchemar (Fragments), et sur les combats normaux de l'Aventure (Clé de Coffre).",
+      "Menu principal : \"LE RELIQUAIRE\" remplace \"EFFACER LA PARTIE\" dans la liste des boutons ; Effacer la partie est déplacée dans le Mode Administrateur.",
+      "Menu principal : \"MISES À JOUR\" devient une icône de coin explicite (avec pastille de notification), séparée de la liste des boutons.",
+      "Ajout d'un bouton d'aide (?) ouvrant un guide complet du jeu, pour expliquer toutes les possibilités à un nouveau joueur.",
+      "Petite touche d'esthétisme sur les boutons du menu (halo lumineux derrière l'icône, accent d'angle).",
+      "Correction : dans certains sous-menus (Reliquaire, Aventure, Échos Sanguins), cliquer à un endroit précis pouvait renvoyer vers un autre sous-menu déjà visité, à cause d'éléments d'écran non détruits lors du changement d'écran."
+    ]
+  },
+  {
     date: "19/09/2026",
     points: [
       "Ajout du système d'Équipement Échos Sanguins : 6 emplacements par unité, rareté à substats, amélioration +1 à +15, et 7 Sets d'ensemble (Violent, Swift, Fatal, Vampire, Energy, Guard, Shield).",
@@ -13,7 +26,14 @@ export const CHANGELOG_DATA = [
       "Gestion du Deck : la position de défilement de la réserve n'est plus réinitialisée après une vente.",
       "Autel de Fusion : la rareté s'affiche désormais sur la carte choisie comme unité Principale.",
       "Correction : sur les écrans à défilement (Deck, Échos Sanguins, Fusion, Aventure), les boutons fixes (retour, emplacements) étaient parfois cliqués par erreur par du contenu défilé invisible.",
-      "Correction : le menu déroulant de sélection ne validait pas toujours le choix effectué."
+      "Correction : le menu déroulant de sélection ne validait pas toujours le choix effectué.",
+      "Drop d'Échos Sanguins revu : chance et rareté nettement plus faibles sur un combat normal, nettement plus élevées sur un BOSS.",
+      "Menu principal : nouvelle disposition (barre de stats, niveau de compte, boutons), avec bannières illustrées pour Aventure et Gestion du Deck.",
+      "Ajout du Donjon Quotidien : combat gratuit, 3 tentatives par jour, défi identique pour tous le même jour.",
+      "Ajout du Mode Cauchemar : débloqué une fois les 42 chapitres terminés, permet de rejouer l'Aventure avec des ennemis renforcés et de meilleures récompenses.",
+      "Ajout de la Tour Sans Fin : 100 étages en progression séquentielle, un combat par étage, difficulté croissante en continu.",
+      "Aventure : nouvel écran d'entrée pour choisir entre Histoire Principale, Donjon Quotidien et Tour Sans Fin.",
+      "Correction : les textes des cartes spéciales (Donjon, Tour) restaient figés à l'écran pendant le défilement de la liste."
     ]
   },
   {

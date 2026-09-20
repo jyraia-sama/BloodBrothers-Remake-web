@@ -1,22 +1,9 @@
 import { PLAYER_DATA, saveGameData } from '../saveSystem.js';
-import { UNITS_DATABASE } from '../database.js';
+import { UNITS_DATABASE, ENEMY_ONLY_KEYS } from '../database.js';
 import { SUMMON_POOL_DATABASE } from './SummonPoolData.js';
 import { createUnitInstance } from '../levelSystem.js';
 import { ELEMENT_LABELS } from '../elements.js';
-
-// Unités réservées aux combats (non invocables par le joueur)
-const ENEMY_ONLY_KEYS = [
-  'boss', 'squelette', 'demon_inf',
-  // Ennemis de zone par palier
-  'gobelin_maraudeur', 'loup_affame', 'rat_corrompu',
-  'zombie_enrage', 'brigand_cagoule', 'araignee_geante',
-  'golem_fissure', 'harpie_sanglante', 'ombre_rampante',
-  'spectre_vengeur', 'troll_cavernes', 'cyclope_furieux',
-  'demon_mineur', 'liche_novice', 'gargouille_jade',
-  'chevalier_dechu', 'hydre_bicephale', 'vouivre_ecarlate',
-  // Boss d'Acte
-  'gardien_foret', 'seigneur_donjon'
-];
+import { getItemCount, spendItem } from '../saveSystem.js';
 
 // Pacte Doré (100 Or / pièce) : uniquement les raretés N / R / SR
 const GOLD_RARITY_WEIGHTS = { N: 62, R: 30, SR: 8 };
@@ -72,20 +59,52 @@ export class GachaScene extends Phaser.Scene {
     this.makeSummonButton(610, 388, `x1 (${SHARD_COST_EACH} 🌠)`, 0x662299, () => this.drawSummon('shard', 1));
     this.makeSummonButton(610, 432, `x10 (${SHARD_COST_EACH * 10} 🌠)`, 0x662299, () => this.drawSummon('shard', 10));
 
-    this.add.text(400, 475, "Les Éclats de Pacte Supérieur s'obtiennent en battant des BOSS.", {
+    // --- Billet de Pacte (objet du Reliquaire) ---
+    this.ticketBtn = this.makeSummonButton(400, 462, '', 0x774411, () => this.useTicket());
+    this.updateTicketButton();
+
+    this.add.text(400, 496, "Les Éclats de Pacte Supérieur s'obtiennent en battant des BOSS.", {
       fontSize: '11px', color: '#8d94a3'
     }).setOrigin(0.5);
 
-    this.logText = this.add.text(400, 500, '', { fontSize: '13px', color: '#ff4444' }).setOrigin(0.5);
+    this.logText = this.add.text(400, 518, '', { fontSize: '13px', color: '#ff4444' }).setOrigin(0.5);
   }
 
   makeSummonButton(x, y, label, color, onClick) {
     const btn = this.add.rectangle(x, y, 210, 36, color).setInteractive({ useHandCursor: true }).setStrokeStyle(2, 0xffffff);
-    this.add.text(x, y, label, { fontSize: '13px', color: '#ffffff', fontStyle: 'bold' }).setOrigin(0.5);
+    const text = this.add.text(x, y, label, { fontSize: '13px', color: '#ffffff', fontStyle: 'bold' }).setOrigin(0.5);
     btn.on('pointerover', () => btn.setAlpha(0.85));
     btn.on('pointerout', () => btn.setAlpha(1));
     btn.on('pointerdown', onClick);
-    return btn;
+    return { btn, text };
+  }
+
+
+  updateTicketButton() {
+    const count = getItemCount('pact_ticket');
+    this.ticketBtn.text.setText(`🎫 Utiliser un Billet de Pacte (x${count})`);
+    this.ticketBtn.btn.setFillStyle(count > 0 ? 0x774411 : 0x333333);
+  }
+
+  useTicket() {
+    if (!spendItem('pact_ticket', 1)) {
+      this.logText.setText("Aucun Billet de Pacte disponible.");
+      return;
+    }
+    saveGameData();
+    this.updateTicketButton();
+
+    const drawnKey = this.pickWeightedKey(GOLD_RARITY_WEIGHTS);
+    if (!drawnKey) {
+      this.logText.setText('Aucune unité disponible à invoquer !');
+      return;
+    }
+    const unit = UNITS_DATABASE[drawnKey];
+    const instance = createUnitInstance(drawnKey);
+    PLAYER_DATA.inventory.push(instance);
+    saveGameData();
+    this.logText.setText('');
+    this.revealSingle(unit);
   }
 
   /** Tire une clé d'unité en respectant les probabilités de rareté du pool fourni. */

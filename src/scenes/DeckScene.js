@@ -1,8 +1,9 @@
-import { PLAYER_DATA, saveGameData, getInstanceById, unequipEchoesForUnit } from '../saveSystem.js';
+import { PLAYER_DATA, saveGameData, getInstanceById, unequipEchoesForUnit, getItemCount, spendItem } from '../saveSystem.js';
 import { UNITS_DATABASE } from '../database.js';
-import { getInstanceStats, getLevelProgress, xpForNextLevel, MAX_LEVEL, getSellPrice, describeSkill } from '../levelSystem.js';
+import { getInstanceStats, getLevelProgress, xpForNextLevel, MAX_LEVEL, getSellPrice, describeSkill, addXP } from '../levelSystem.js';
 import { makeScrollable } from '../scrollHelper.js';
 import { ELEMENT_ICONS, ELEMENT_LABELS, FRONT_ROW_SIZE } from '../elements.js';
+import { XP_TOME_AMOUNT } from '../ItemData.js';
 
 const INVENTORY_VIEWPORT = { x: 400, y: 425, width: 780, height: 310 };
 const COLS = 7;
@@ -390,12 +391,34 @@ export class DeckScene extends Phaser.Scene {
     const skillDesc = this.add.text(400, 380, `Chances de déclenchement : ${base.skill ? (base.skill.chance * 100) + '%' : 'N/A'}`, { fontSize: '13px', color: '#cccccc' }).setOrigin(0.5);
     this.bindSkillTooltip(skillTitle, base.skill);
 
-    const closeBtn = this.add.rectangle(400, 460, 140, 35, 0xaa2222).setInteractive({ useHandCursor: true }).setStrokeStyle(1, 0xffffff);
-    const closeText = this.add.text(400, 460, 'Fermer', { fontSize: '14px', color: '#ffffff', fontStyle: 'bold' }).setOrigin(0.5);
+    // --- Tome d'XP (objet du Reliquaire) ---
+    const tomeCount = getItemCount('xp_tome');
+    const tomeUsable = tomeCount > 0 && instance.level < MAX_LEVEL;
+    const tomeBtn = this.add.rectangle(400, 418, 300, 30, tomeUsable ? 0x224477 : 0x333333)
+      .setStrokeStyle(1, 0xffffff).setInteractive({ useHandCursor: tomeUsable });
+    const tomeText = this.add.text(400, 418, `📘 Tome d'XP (x${tomeCount}) : +${XP_TOME_AMOUNT} XP`, { fontSize: '11px', color: '#ffffff', fontStyle: 'bold' }).setOrigin(0.5);
+
+    if (tomeUsable) {
+      tomeBtn.on('pointerdown', () => {
+        spendItem('xp_tome', 1);
+        const levelsGained = addXP(instance, XP_TOME_AMOUNT);
+        saveGameData();
+        this.modalContainer.destroy();
+        this.renderDeck();
+        this.renderInventory();
+        this.showUnitDetails(instance);
+        if (levelsGained > 0) {
+          this.infoText.setText(`${base.name} passe Niveau ${instance.level} !`).setColor('#00ff88');
+        }
+      });
+    }
+
+    const closeBtn = this.add.rectangle(400, 462, 140, 32, 0xaa2222).setInteractive({ useHandCursor: true }).setStrokeStyle(1, 0xffffff);
+    const closeText = this.add.text(400, 462, 'Fermer', { fontSize: '14px', color: '#ffffff', fontStyle: 'bold' }).setOrigin(0.5);
 
     closeBtn.on('pointerdown', () => this.modalContainer.destroy());
     overlay.on('pointerdown', () => this.modalContainer.destroy());
 
-    this.modalContainer.add([overlay, panel, title, elementLine, levelLine, barBg, barFill, statsText, fusionText, skillTitle, skillDesc, closeBtn, closeText]);
+    this.modalContainer.add([overlay, panel, title, elementLine, levelLine, barBg, barFill, statsText, fusionText, skillTitle, skillDesc, tomeBtn, tomeText, closeBtn, closeText]);
   }
 }

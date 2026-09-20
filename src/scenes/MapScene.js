@@ -20,7 +20,7 @@ export class MapScene extends Phaser.Scene {
 
     const backBtn = this.add.rectangle(70, 30, 100, 30, 0x444455).setInteractive({ useHandCursor: true }).setStrokeStyle(1, 0xffffff);
     this.add.text(70, 30, '‹ Retour', { fontSize: '14px', color: '#ffffff' }).setOrigin(0.5);
-    backBtn.on('pointerdown', () => this.scene.start('ChapterSelectScene'));
+    backBtn.on('pointerdown', () => this.scene.start('ChapterSelectScene', { actId: this.currentChapter.actId }));
 
     // --- Calcul des positions des cases (support du graphe / embranchements) ---
     const maxCol = Math.max(...mapTiles.map(t => t.col));

@@ -2,10 +2,13 @@ import {
   PLAYER_DATA,
   STAMINA_REGEN_INTERVAL,
   saveGameData,
-  resetGameData
+  resetGameData,
+  exportSaveData,
+  importSaveData
 } from '../saveSystem.js';
 
 import { CHANGELOG_DATA } from './ChangelogData.js';
+import { GUIDE_SECTIONS } from '../GuideData.js';
 import { getAccountProgress, accountXpForNextLevel, MAX_ACCOUNT_LEVEL } from '../levelSystem.js';
 import { makeScrollable } from '../scrollHelper.js';
 
@@ -17,8 +20,6 @@ export class MenuScene extends Phaser.Scene {
 
   preload() {
     this.load.image('menuBg', 'src/assets/images/menu_BBRW.jpg');
-    this.load.image('btnAventure', 'src/assets/menu/btn_aventure.png');
-    this.load.image('btnDeck', 'src/assets/menu/btn_deck.png');
   }
 
   create() {
@@ -51,8 +52,8 @@ export class MenuScene extends Phaser.Scene {
       .setDepth(-10);
 
     // Titre
-    this.add.text(400, 50, 'BLOOD BROTHERS', {
-      fontSize: '32px',
+    this.add.text(400, 50, 'BROTHERS OF LEGACY', {
+      fontSize: '30px',
       color: '#e52b45',
       fontStyle: 'bold',
       stroke: '#320812',
@@ -62,7 +63,7 @@ export class MenuScene extends Phaser.Scene {
 
     this.add.rectangle(400, 78, 220, 2, COLORS.blood).setOrigin(0.5).setAlpha(0.8);
 
-    this.add.text(400, 93, 'REMAKE WEB', {
+    this.add.text(400, 93, 'TEARS AND BLOOD', {
       fontSize: '12px',
       color: '#e52b45',
       fontStyle: 'bold',
@@ -98,12 +99,12 @@ export class MenuScene extends Phaser.Scene {
       .setStrokeStyle(1, COLORS.darkGrey);
     this.accountBarFill = this.add.rectangle(280, 163, 1, 6, 0x4f9fd8).setOrigin(0, 0.5);
 
-    // Boutons du menu (Aventure et Deck en bannière image ; les autres suivront)
-    this.createImageMenuButton(400, 200, 360, 60, 'btnAventure', () => {
+    // Boutons du menu
+    this.createMenuButton(400, 200, '🗺️', 'AVENTURE', '7 Actes', COLORS.blood, COLORS.bloodBright, () => {
       this.scene.start('ChapterSelectScene');
     });
 
-    this.createImageMenuButton(400, 263, 360, 60, 'btnDeck', () => {
+    this.createMenuButton(400, 263, '🛡️', 'GESTION DU DECK', 'Gérer vos cartes', COLORS.steel, COLORS.steelBright, () => {
       this.scene.start('DeckScene');
     });
 
@@ -119,18 +120,22 @@ export class MenuScene extends Phaser.Scene {
       this.scene.start('EchoScene');
     });
 
-    // Range du bas : Effacer la partie + Mises à jour, côte à côte
-    this.createSmallActionButton(205, 517, 360, 'EFFACER LA PARTIE', COLORS.danger, COLORS.dangerBright, () => {
-      resetGameData();
-      this.scene.start('HeroSelectScene');
+    // Le Reliquaire : même style empilé que les autres boutons
+    this.createMenuButton(400, 515, '🏺', 'LE RELIQUAIRE', 'Poussière, Essences, Fragments...', 0x3a2266, 0x5c3aa3, () => {
+      this.scene.start('ReliquaryScene');
     });
 
-    this.createSmallActionButton(595, 517, 360, 'MISES À JOUR', 0x171b26, 0x292315, () => {
+    // Mises à jour : icône de coin, en bas à droite
+    this.createCornerIconButton(755, 570, '📜', () => {
       this.showChangelogModal();
     });
 
     this.createAdminButton(765, 30, () => {
       this.showAdminModal();
+    });
+
+    this.createHelpButton(35, 30, () => {
+      this.showGuideModal();
     });
 
     // Timer
@@ -168,7 +173,7 @@ export class MenuScene extends Phaser.Scene {
     this.modalContainer.setDepth(150);
 
     const overlay = this.add.rectangle(400, 300, 800, 600, 0x000000, 0.85).setInteractive();
-    const panel = this.add.rectangle(400, 300, 480, 370, 0x10131d).setStrokeStyle(2, 0xe52b45);
+    const panel = this.add.rectangle(400, 305, 480, 440, 0x10131d).setStrokeStyle(2, 0xe52b45);
 
     this.add.rectangle(400, 160, 400, 2, 0x9e1b32);
 
@@ -245,11 +250,50 @@ export class MenuScene extends Phaser.Scene {
     cbBuffBg.on('pointerdown', toggleBuff);
     lblBuff.setInteractive({ useHandCursor: true }).on('pointerdown', toggleBuff);
 
-    const closeBtn = this.add.rectangle(400, 400, 140, 35, 0x252a38)
+    // --- Effacer la partie (déplacé ici depuis le menu principal) ---
+    const resetBtn = this.add.rectangle(400, 340, 320, 36, 0x711c28).setInteractive({ useHandCursor: true }).setStrokeStyle(1, 0xe33b4f);
+    const resetText = this.add.text(400, 340, '⚠️ EFFACER LA PARTIE', { fontSize: '13px', color: '#ffffff', fontStyle: 'bold' }).setOrigin(0.5);
+
+    resetBtn.on('pointerover', () => resetBtn.setFillStyle(0xe33b4f));
+    resetBtn.on('pointerout', () => resetBtn.setFillStyle(0x711c28));
+    resetBtn.on('pointerdown', () => {
+      resetGameData();
+      this.scene.start('HeroSelectScene');
+    });
+
+    // --- Export / Import de sauvegarde ---
+    const ioResultText = this.add.text(400, 452, '', { fontSize: '11px', color: '#88ff88', align: 'center', wordWrap: { width: 420 } }).setOrigin(0.5);
+
+    const exportBtn = this.add.rectangle(400, 380, 320, 34, 0x1a3a5a).setInteractive({ useHandCursor: true }).setStrokeStyle(1, 0x4f81a8);
+    const exportText = this.add.text(400, 380, '📤 Exporter la sauvegarde', { fontSize: '12px', color: '#ffffff', fontStyle: 'bold' }).setOrigin(0.5);
+    exportBtn.on('pointerover', () => exportBtn.setFillStyle(0x2a5a8a));
+    exportBtn.on('pointerout', () => exportBtn.setFillStyle(0x1a3a5a));
+    exportBtn.on('pointerdown', () => {
+      this.exportSaveFile();
+      ioResultText.setText('Sauvegarde téléchargée.').setColor('#88ff88');
+    });
+
+    const importBtn = this.add.rectangle(400, 418, 320, 34, 0x3a2a1a).setInteractive({ useHandCursor: true }).setStrokeStyle(1, 0xc78b3c);
+    const importText = this.add.text(400, 418, '📥 Importer une sauvegarde', { fontSize: '12px', color: '#ffffff', fontStyle: 'bold' }).setOrigin(0.5);
+    importBtn.on('pointerover', () => importBtn.setFillStyle(0x5a3a1a));
+    importBtn.on('pointerout', () => importBtn.setFillStyle(0x3a2a1a));
+    importBtn.on('pointerdown', () => {
+      ioResultText.setText('Sélection du fichier...').setColor('#ffdd66');
+      this.importSaveFile((result) => {
+        if (result.success) {
+          ioResultText.setText('Sauvegarde importée ! Redémarrage...').setColor('#88ff88');
+          this.time.delayedCall(900, () => this.scene.start('MenuScene'));
+        } else {
+          ioResultText.setText(`Échec : ${result.error}`).setColor('#ff4444');
+        }
+      });
+    });
+
+    const closeBtn = this.add.rectangle(400, 490, 140, 35, 0x252a38)
       .setInteractive({ useHandCursor: true })
       .setStrokeStyle(1, 0x9da3b0);
 
-    const closeText = this.add.text(400, 400, 'FERMER', {
+    const closeText = this.add.text(400, 490, 'FERMER', {
       fontSize: '12px',
       color: '#ffffff',
       fontStyle: 'bold'
@@ -279,8 +323,58 @@ export class MenuScene extends Phaser.Scene {
       cbGoldBg, cbGoldCheck, lblGold,
       cbStaminaBg, cbStaminaCheck, lblStamina,
       cbBuffBg, cbBuffCheck, lblBuff,
+      resetBtn, resetText,
+      exportBtn, exportText, importBtn, importText, ioResultText,
       closeBtn, closeText
     ]);
+  }
+
+  /** Télécharge la sauvegarde actuelle en fichier .json. */
+  exportSaveFile() {
+    const dataStr = exportSaveData();
+    const blob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const date = new Date().toISOString().slice(0, 10);
+
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `brothers-of-legacy-save-${date}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  /** Ouvre un sélecteur de fichier, lit le .json choisi et l'importe. Appelle onDone({success, error?}). */
+  importSaveFile(onDone) {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json,application/json';
+    input.style.display = 'none';
+    document.body.appendChild(input);
+
+    const cleanup = () => {
+      if (input.parentNode) document.body.removeChild(input);
+    };
+
+    input.addEventListener('change', () => {
+      const file = input.files && input.files[0];
+      if (!file) { cleanup(); return; }
+
+      const reader = new FileReader();
+      reader.onload = (evt) => {
+        const result = importSaveData(evt.target.result);
+        onDone(result);
+        cleanup();
+      };
+      reader.onerror = () => {
+        onDone({ success: false, error: 'Impossible de lire le fichier.' });
+        cleanup();
+      };
+      reader.readAsText(file);
+    });
+
+    input.click();
   }
 
   createAdminButton(x, y, callback) {
@@ -301,39 +395,49 @@ export class MenuScene extends Phaser.Scene {
     btnBg.on('pointerdown', callback);
   }
 
-  /** Bouton de menu utilisant une image de bannière (déjà mise en forme par l'artiste) au lieu d'un rectangle dessiné. */
-  createImageMenuButton(x, y, width, height, imageKey, callback) {
-    const img = this.add.image(x, y, imageKey).setDisplaySize(width, height).setInteractive({ useHandCursor: true });
-    const baseScaleX = img.scaleX;
-    const baseScaleY = img.scaleY;
+  /** Bouton d'aide (guide du jeu), symétrique de l'icône Admin. */
+  createHelpButton(x, y, callback) {
+    const btnBg = this.add.rectangle(x, y, 32, 32, 0x000000, 0.3)
+      .setInteractive({ useHandCursor: true })
+      .setStrokeStyle(1, 0x444455);
 
-    img.on('pointerover', () => {
-      this.tweens.add({ targets: img, scaleX: baseScaleX * 1.04, scaleY: baseScaleY * 1.04, duration: 100, ease: 'Power2' });
-    });
-    img.on('pointerout', () => {
-      this.tweens.add({ targets: img, scaleX: baseScaleX, scaleY: baseScaleY, duration: 100, ease: 'Power2' });
-    });
-    img.on('pointerdown', () => {
-      this.tweens.add({ targets: img, scaleX: baseScaleX * 0.97, scaleY: baseScaleY * 0.97, duration: 60, yoyo: true, ease: 'Power2' });
-      callback();
-    });
+    const icon = this.add.text(x, y, '❓', { fontSize: '14px' }).setOrigin(0.5);
 
-    return img;
+    btnBg.on('pointerover', () => {
+      btnBg.setFillStyle(0x4f81a8, 0.5);
+      btnBg.setStrokeStyle(1, 0x9fd4ff);
+    });
+    btnBg.on('pointerout', () => {
+      btnBg.setFillStyle(0x000000, 0.3);
+      btnBg.setStrokeStyle(1, 0x444455);
+    });
+    btnBg.on('pointerdown', callback);
   }
 
-  /** Petit bouton rectangulaire pour la range du bas (Effacer la partie / Mises à jour). */
-  createSmallActionButton(x, y, width, label, normalColor, hoverColor, callback) {
-    const btn = this.add.rectangle(x, y, width, 40, normalColor, 0.9).setStrokeStyle(1, normalColor).setInteractive({ useHandCursor: true });
-    const text = this.add.text(x, y, label, { fontSize: '13px', color: '#ffffff', fontStyle: 'bold' }).setOrigin(0.5);
+  /** Icône de coin explicite (Mises à jour) : plus visible qu'un simple bouton discret, avec pastille de notification. */
+  createCornerIconButton(x, y, icon, callback) {
+    const btnBg = this.add.circle(x, y, 24, 0x2a2210, 0.9)
+      .setInteractive({ useHandCursor: true })
+      .setStrokeStyle(2, 0x8a7a2a);
 
-    btn.on('pointerover', () => btn.setFillStyle(hoverColor, 0.95));
-    btn.on('pointerout', () => btn.setFillStyle(normalColor, 0.9));
-    btn.on('pointerdown', () => {
-      this.tweens.add({ targets: [btn, text], scaleX: 0.97, scaleY: 0.97, duration: 60, yoyo: true, ease: 'Power2' });
-      callback();
+    const iconText = this.add.text(x, y, icon, { fontSize: '20px' }).setOrigin(0.5);
+    const label = this.add.text(x, y + 30, 'MàJ', { fontSize: '9px', color: '#d9a441', fontStyle: 'bold' }).setOrigin(0.5);
+
+    // Petite pastille de notification, comme sur la maquette
+    this.add.circle(x + 17, y - 17, 7, 0xe33b4f).setStrokeStyle(1, 0xffffff);
+    this.add.text(x + 17, y - 17, '!', { fontSize: '9px', color: '#ffffff', fontStyle: 'bold' }).setOrigin(0.5);
+
+    btnBg.on('pointerover', () => {
+      btnBg.setFillStyle(0x4a3f1a, 1);
+      btnBg.setStrokeStyle(2, 0xffd86b);
     });
+    btnBg.on('pointerout', () => {
+      btnBg.setFillStyle(0x2a2210, 0.9);
+      btnBg.setStrokeStyle(2, 0x8a7a2a);
+    });
+    btnBg.on('pointerdown', callback);
 
-    return { btn, text };
+    return { btnBg, iconText, label };
   }
 
   createMenuButton(x, y, icon, title, subtitle, normalColor, hoverColor, callback) {
@@ -343,12 +447,14 @@ export class MenuScene extends Phaser.Scene {
     const background = this.add.rectangle(0, 0, 350, 50, normalColor, 0.85).setStrokeStyle(1, normalColor);
     const inner = this.add.rectangle(0, 0, 342, 42, 0x0d1018, 0.92);
     const sideBar = this.add.rectangle(-171, 0, 5, 42, normalColor);
+    const iconGlow = this.add.circle(-140, 0, 17, normalColor, 0.35).setStrokeStyle(1, hoverColor, 0.6);
     const iconText = this.add.text(-140, 0, icon, { fontSize: '22px' }).setOrigin(0.5);
+    const cornerAccent = this.add.triangle(163, -19, 0, 0, 16, 0, 0, 16, normalColor, 0.6);
     const titleText = this.add.text(-105, -7, title, { fontSize: '14px', color: '#ffffff', fontStyle: 'bold' }).setOrigin(0, 0.5);
     const subtitleText = this.add.text(-105, 11, subtitle, { fontSize: '9px', color: '#8d94a3' }).setOrigin(0, 0.5);
     const arrow = this.add.text(155, 0, '›', { fontSize: '25px', color: '#6f7582' }).setOrigin(0.5);
 
-    container.add([shadow, background, inner, sideBar, iconText, titleText, subtitleText, arrow]);
+    container.add([shadow, background, inner, sideBar, iconGlow, iconText, cornerAccent, titleText, subtitleText, arrow]);
 
     const hitArea = this.add.rectangle(x, y, 350, 50, 0xffffff, 0).setInteractive({ useHandCursor: true });
 
@@ -356,6 +462,8 @@ export class MenuScene extends Phaser.Scene {
       background.setFillStyle(hoverColor, 0.9);
       background.setStrokeStyle(2, hoverColor);
       sideBar.setFillStyle(hoverColor);
+      iconGlow.setFillStyle(hoverColor, 0.5);
+      cornerAccent.setFillStyle(hoverColor, 0.9);
       arrow.setColor('#' + hoverColor.toString(16).padStart(6, '0'));
       this.tweens.add({ targets: container, scaleX: 1.025, scaleY: 1.025, duration: 100, ease: 'Power2' });
     });
@@ -364,6 +472,8 @@ export class MenuScene extends Phaser.Scene {
       background.setFillStyle(normalColor, 0.85);
       background.setStrokeStyle(1, normalColor);
       sideBar.setFillStyle(normalColor);
+      iconGlow.setFillStyle(normalColor, 0.35);
+      cornerAccent.setFillStyle(normalColor, 0.6);
       arrow.setColor('#6f7582');
       this.tweens.add({ targets: container, scaleX: 1, scaleY: 1, duration: 100, ease: 'Power2' });
     });
@@ -439,6 +549,85 @@ export class MenuScene extends Phaser.Scene {
       if (this.changelogScroll) {
         this.changelogScroll.destroy();
         this.changelogScroll = null;
+      }
+      if (this.modalContainer) {
+        this.modalContainer.destroy();
+        this.modalContainer = null;
+      }
+    };
+
+    closeBtn.on('pointerdown', closeModal);
+    overlay.on('pointerdown', closeModal);
+
+    this.modalContainer.add([overlay, panel, title, closeBtn, closeIcon, scrollContainer]);
+  }
+
+  showGuideModal() {
+    if (this.guideScroll) {
+      this.guideScroll.destroy();
+      this.guideScroll = null;
+    }
+    if (this.modalContainer) {
+      this.modalContainer.destroy();
+    }
+
+    this.modalContainer = this.add.container(0, 0);
+    this.modalContainer.setDepth(150);
+
+    const overlay = this.add.rectangle(400, 300, 800, 600, 0x000000, 0.85).setInteractive();
+    const panel = this.add.rectangle(400, 300, 580, 500, 0x10131d).setStrokeStyle(2, 0x4f81a8);
+
+    this.add.rectangle(400, 77, 500, 2, 0x2a4a6a);
+
+    const title = this.add.text(400, 55, 'GUIDE DU JEU', {
+      fontSize: '20px',
+      color: '#9fd4ff',
+      fontStyle: 'bold'
+    }).setOrigin(0.5);
+
+    // --- Bouton de fermeture, en haut à droite du panneau ---
+    const closeBtn = this.add.circle(667, 67, 17, 0x252a38).setInteractive({ useHandCursor: true }).setStrokeStyle(1, 0x9da3b0);
+    const closeIcon = this.add.text(667, 67, '✕', { fontSize: '15px', color: '#ffffff', fontStyle: 'bold' }).setOrigin(0.5);
+
+    closeBtn.on('pointerover', () => {
+      closeBtn.setFillStyle(0x3a4052);
+      closeBtn.setStrokeStyle(1, 0xffffff);
+    });
+    closeBtn.on('pointerout', () => {
+      closeBtn.setFillStyle(0x252a38);
+      closeBtn.setStrokeStyle(1, 0x9da3b0);
+    });
+
+    // --- Contenu déroulant, section par section ---
+    const scrollContainer = this.add.container(0, 0);
+    const textObjects = [];
+    let cursorY = 105;
+    const wrapWidth = 490;
+
+    GUIDE_SECTIONS.forEach((section) => {
+      const headerText = this.add.text(155, cursorY, `${section.icon}  ${section.title}`, {
+        fontSize: '15px', color: '#9fd4ff', fontStyle: 'bold'
+      });
+      textObjects.push(headerText);
+      cursorY += headerText.height + 6;
+
+      const bodyText = this.add.text(155, cursorY, section.body, {
+        fontSize: '12px', color: '#dddddd', lineSpacing: 5, wordWrap: { width: wrapWidth }
+      });
+      textObjects.push(bodyText);
+      cursorY += bodyText.height + 22;
+    });
+
+    scrollContainer.add(textObjects);
+
+    const viewport = { x: 400, y: 320, width: 510, height: 400 };
+    const contentHeight = cursorY;
+    this.guideScroll = makeScrollable(this, scrollContainer, viewport, contentHeight);
+
+    const closeModal = () => {
+      if (this.guideScroll) {
+        this.guideScroll.destroy();
+        this.guideScroll = null;
       }
       if (this.modalContainer) {
         this.modalContainer.destroy();

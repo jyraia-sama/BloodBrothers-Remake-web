@@ -1,10 +1,13 @@
-import { PLAYER_DATA, saveGameData, getEquippedEchoes } from '../saveSystem.js';
+import { PLAYER_DATA, saveGameData, getEquippedEchoes, getItemCount, addItem, spendItem } from '../saveSystem.js';
 import { UNITS_DATABASE } from '../database.js';
 import {
   ECHO_SLOTS, ECHO_SETS, ECHO_SET_KEYS, ECHO_RARITY, STAT_LABELS, MAX_ECHO_LEVEL,
   getSlotById, formatStatValue
 } from '../EchoData.js';
-import { getUpgradeCost, getUpgradeSuccessRate, upgradeEcho, getEchoSellPrice, computeActiveSets } from '../echoSystem.js';
+import {
+  getUpgradeCost, getUpgradeSuccessRate, upgradeEcho, getEchoSellPrice, getEchoDustValue,
+  rerollSubstat, computeActiveSets
+} from '../echoSystem.js';
 import { makeScrollable } from '../scrollHelper.js';
 
 const HERO_VIEWPORT = { x: 400, y: 335, width: 720, height: 490 };
@@ -38,7 +41,7 @@ export class EchoScene extends Phaser.Scene {
     this.closeDropdown();
     if (this.heroScroll) { this.heroScroll.destroy(); this.heroScroll = null; }
     if (this.reserveScroll) { this.reserveScroll.destroy(); this.reserveScroll = null; }
-    this.children.removeAll();
+    this.children.removeAll(true); // true = detruit reellement les objets (sinon leurs zones cliquables restent actives)
   }
 
   closeDropdown() {
@@ -336,34 +339,76 @@ export class EchoScene extends Phaser.Scene {
 
     this.modalContainer = this.add.container(0, 0).setDepth(400);
 
-    const overlay = this.add.rectangle(400, 300, 800, 600, 0x000000, 0.75).setInteractive();
-    const panel = this.add.rectangle(400, 300, 400, 450, 0x1a1d28).setStrokeStyle(2, rarityDef.color);
+    const overlay = this.add.rectangle(400, 280, 800, 600, 0x000000, 0.75).setInteractive();
+    const panel = this.add.rectangle(400, 280, 400, 430, 0x1a1d28).setStrokeStyle(2, rarityDef.color);
 
-    const title = this.add.text(400, 105, `${slot.name}`, { fontSize: '18px', color: '#ffffff', fontStyle: 'bold' }).setOrigin(0.5);
-    const subtitle = this.add.text(400, 128, `${rarityDef.label}  •  ${'★'.repeat(echo.star)}`, { fontSize: '13px', color: '#ffdd00' }).setOrigin(0.5);
-    const setLine = this.add.text(400, 150, `Set : ${setDef.name}`, { fontSize: '12px', color: '#88ddff' }).setOrigin(0.5);
-
-    const levelLine = this.add.text(400, 178, `Niveau +${echo.level} / +${MAX_ECHO_LEVEL}`, { fontSize: '13px', color: '#00ffaa' }).setOrigin(0.5);
+    const title = this.add.text(400, 95, `${slot.name}`, { fontSize: '18px', color: '#ffffff', fontStyle: 'bold' }).setOrigin(0.5);
+    const subtitle = this.add.text(400, 117, `${rarityDef.label}  •  ${'★'.repeat(echo.star)}`, { fontSize: '13px', color: '#ffdd00' }).setOrigin(0.5);
+    const setLine = this.add.text(400, 137, `Set : ${setDef.name}`, { fontSize: '12px', color: '#88ddff' }).setOrigin(0.5);
+    const levelLine = this.add.text(400, 158, `Niveau +${echo.level} / +${MAX_ECHO_LEVEL}`, { fontSize: '13px', color: '#00ffaa' }).setOrigin(0.5);
 
     const mainStr = `Principale : ${STAT_LABELS[echo.mainStatType]} ${formatStatValue(echo.mainStatType, echo.mainStatValue)}`;
-    const mainText = this.add.text(400, 205, mainStr, { fontSize: '13px', color: '#ffffff', fontStyle: 'bold' }).setOrigin(0.5);
+    const mainText = this.add.text(400, 180, mainStr, { fontSize: '13px', color: '#ffffff', fontStyle: 'bold' }).setOrigin(0.5);
 
-    let substatsStr = echo.substats.length > 0
-      ? echo.substats.map(s => `${STAT_LABELS[s.type]} ${formatStatValue(s.type, s.value)}`).join('\n')
-      : 'Aucune substat';
-    const substatsText = this.add.text(400, 235, substatsStr, { fontSize: '12px', color: '#cccccc', align: 'center', lineSpacing: 4 }).setOrigin(0.5, 0);
+    const substatsHeader = this.add.text(400, 202,
+      `Substats   (💎 x${getItemCount('reforge_stone')}   🔒 x${getItemCount('lock_seal')})`,
+      { fontSize: '11px', color: '#aaaaaa' }
+    ).setOrigin(0.5);
+
+    const elements = [overlay, panel, title, subtitle, setLine, levelLine, mainText, substatsHeader];
+    const resultText = this.add.text(400, 342, '', { fontSize: '12px', color: '#ffcc00' }).setOrigin(0.5);
+
+    if (echo.substats.length === 0) {
+      elements.push(this.add.text(400, 220, 'Aucune substat', { fontSize: '12px', color: '#888888' }).setOrigin(0.5));
+    } else {
+      echo.substats.forEach((s, idx) => {
+        const rowY = 220 + idx * 21;
+        const rowText = this.add.text(230, rowY, `${STAT_LABELS[s.type]} ${formatStatValue(s.type, s.value)}`, {
+          fontSize: '12px', color: s.locked ? '#ffdd00' : '#ffffff'
+        }).setOrigin(0, 0.5);
+
+        const lockIcon = this.add.text(495, rowY, s.locked ? '🔒' : '🔓', { fontSize: '13px' }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+        lockIcon.on('pointerdown', () => {
+          if (s.locked) {
+            s.locked = false;
+          } else {
+            if (!spendItem('lock_seal', 1)) {
+              resultText.setText('Aucun Sceau de Verrouillage.').setColor('#ff4444');
+              return;
+            }
+            s.locked = true;
+          }
+          saveGameData();
+          this.modalContainer.destroy();
+          this.showEchoDetails(echo);
+        });
+
+        const reforgeIcon = this.add.text(525, rowY, '🔄', { fontSize: '13px' }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+        reforgeIcon.on('pointerdown', () => {
+          if (!spendItem('reforge_stone', 1)) {
+            resultText.setText('Aucune Pierre de Reforge.').setColor('#ff4444');
+            return;
+          }
+          rerollSubstat(echo, idx);
+          saveGameData();
+          this.modalContainer.destroy();
+          this.refreshEquipMenu();
+          this.showEchoDetails(echo);
+        });
+
+        elements.push(rowText, lockIcon, reforgeIcon);
+      });
+    }
 
     const isMax = echo.level >= MAX_ECHO_LEVEL;
     const cost = isMax ? 0 : getUpgradeCost(echo);
     const rate = isMax ? 0 : Math.round(getUpgradeSuccessRate(echo.level) * 100);
     const upgradeLabel = isMax ? 'NIVEAU MAXIMUM' : `Améliorer (${cost} Or • ${rate}%)`;
 
-    const upgradeBtn = this.add.rectangle(400, 340, 300, 38, isMax ? 0x333333 : 0x226633)
+    const upgradeBtn = this.add.rectangle(400, 315, 300, 36, isMax ? 0x333333 : 0x226633)
       .setStrokeStyle(1, 0xffffff)
       .setInteractive({ useHandCursor: !isMax });
-    const upgradeText = this.add.text(400, 340, upgradeLabel, { fontSize: '13px', color: '#ffffff', fontStyle: 'bold' }).setOrigin(0.5);
-
-    const resultText = this.add.text(400, 368, '', { fontSize: '12px', color: '#ffcc00' }).setOrigin(0.5);
+    const upgradeText = this.add.text(400, 315, upgradeLabel, { fontSize: '13px', color: '#ffffff', fontStyle: 'bold' }).setOrigin(0.5);
 
     if (!isMax) {
       upgradeBtn.on('pointerdown', () => {
@@ -396,8 +441,8 @@ export class EchoScene extends Phaser.Scene {
 
     const isEquipped = !!echo.equippedTo;
     const equipLabel = isEquipped ? 'Déséquiper' : 'Équiper sur ce héros';
-    const equipBtn = this.add.rectangle(400, 400, 300, 32, 0x334477).setStrokeStyle(1, 0xffffff).setInteractive({ useHandCursor: true });
-    const equipText = this.add.text(400, 400, equipLabel, { fontSize: '12px', color: '#ffffff' }).setOrigin(0.5);
+    const equipBtn = this.add.rectangle(400, 374, 300, 32, 0x334477).setStrokeStyle(1, 0xffffff).setInteractive({ useHandCursor: true });
+    const equipText = this.add.text(400, 374, equipLabel, { fontSize: '12px', color: '#ffffff' }).setOrigin(0.5);
 
     equipBtn.on('pointerdown', () => {
       if (isEquipped) {
@@ -413,27 +458,27 @@ export class EchoScene extends Phaser.Scene {
     });
 
     const sellPrice = getEchoSellPrice(echo);
-    const sellBtn = this.add.rectangle(400, 438, 300, 32, 0x772222).setStrokeStyle(1, 0xffffff).setInteractive({ useHandCursor: true });
-    const sellText = this.add.text(400, 438, `Vendre (${sellPrice} Or)`, { fontSize: '12px', color: '#ffffff' }).setOrigin(0.5);
+    const dustValue = getEchoDustValue(echo);
+    const sellBtn = this.add.rectangle(400, 408, 300, 32, 0x772222).setStrokeStyle(1, 0xffffff).setInteractive({ useHandCursor: true });
+    const sellText = this.add.text(400, 408, `Désenchanter (${sellPrice} Or + ${dustValue} ✨)`, { fontSize: '12px', color: '#ffffff' }).setOrigin(0.5);
 
     sellBtn.on('pointerdown', () => {
       echo.equippedTo = null;
       PLAYER_DATA.echoInventory = PLAYER_DATA.echoInventory.filter(e => e.echoId !== echo.echoId);
       PLAYER_DATA.gold += sellPrice;
+      addItem('echo_dust', dustValue);
       saveGameData();
       this.modalContainer.destroy();
       this.refreshEquipMenu();
     });
 
-    const closeBtn = this.add.rectangle(400, 500, 140, 32, 0x252a38).setStrokeStyle(1, 0x9da3b0).setInteractive({ useHandCursor: true });
-    const closeText = this.add.text(400, 500, 'Fermer', { fontSize: '13px', color: '#ffffff', fontStyle: 'bold' }).setOrigin(0.5);
+    const closeBtn = this.add.rectangle(400, 458, 140, 32, 0x252a38).setStrokeStyle(1, 0x9da3b0).setInteractive({ useHandCursor: true });
+    const closeText = this.add.text(400, 458, 'Fermer', { fontSize: '13px', color: '#ffffff', fontStyle: 'bold' }).setOrigin(0.5);
 
     closeBtn.on('pointerdown', () => this.modalContainer.destroy());
     overlay.on('pointerdown', () => this.modalContainer.destroy());
 
-    this.modalContainer.add([
-      overlay, panel, title, subtitle, setLine, levelLine, mainText, substatsText,
-      upgradeBtn, upgradeText, resultText, equipBtn, equipText, sellBtn, sellText, closeBtn, closeText
-    ]);
+    elements.push(upgradeBtn, upgradeText, resultText, equipBtn, equipText, sellBtn, sellText, closeBtn, closeText);
+    this.modalContainer.add(elements);
   }
 }

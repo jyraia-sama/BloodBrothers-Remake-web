@@ -1,11 +1,17 @@
-import { PLAYER_DATA, saveGameData, getDeckInstances, getEquippedEchoes } from '../saveSystem.js';
-import { UNITS_DATABASE, CHAPTERS_DATABASE } from '../database.js';
+import { PLAYER_DATA, saveGameData, getDeckInstances, getEquippedEchoes, addItem, addHeroFragments } from '../saveSystem.js';
+import { UNITS_DATABASE, CHAPTERS_DATABASE, getTowerFloorData, TOWER_MAX_FLOOR, FRAGMENT_ELIGIBLE_KEYS } from '../database.js';
 import {
   getInstanceStats, addXP, xpRewardForBattle, MAX_LEVEL,
   addAccountXP, accountXpRewardForBattle
 } from '../levelSystem.js';
 import { getElementMultiplier, ELEMENT_ICONS, FRONT_ROW_SIZE } from '../elements.js';
 import { applyEchoesToStats, createEcho } from '../echoSystem.js';
+import { ECHO_SETS } from '../EchoData.js';
+import { getSetEssenceKey } from '../ItemData.js';
+
+const NIGHTMARE_STAT_MULTIPLIER = 1.8;
+const NIGHTMARE_GOLD_MULTIPLIER = 2;
+const NIGHTMARE_XP_MULTIPLIER = 1.5;
 
 export class BattleScene extends Phaser.Scene {
   constructor() {
@@ -15,17 +21,41 @@ export class BattleScene extends Phaser.Scene {
   }
 
   init(data) {
+    this.mode = (data && data.mode) || 'chapter'; // 'chapter' | 'daily' | 'tower'
     this.isBossCombat = data ? data.isBoss : false;
     this.chapter = data ? data.chapter : CHAPTERS_DATABASE[0];
+    this.nightmare = this.mode === 'chapter' && !!PLAYER_DATA.nightmareMode;
     this.gameSpeed = 1;
     this.combatLogs = [];
+    this.lastPlayerWon = false;
+  }
+
+  /** Multiplicateur appliqué aux stats ennemies : Tour (par étage) ou Mode Cauchemar. */
+  getEnemyStatMultiplier() {
+    if (this.mode === 'tower') return this.chapter.statMultiplier || 1;
+    if (this.nightmare) return NIGHTMARE_STAT_MULTIPLIER;
+    return 1;
+  }
+
+  /** Applique le multiplicateur de difficulté aux stats de base d'un ennemi. */
+  scaleEnemy(base) {
+    const mult = this.getEnemyStatMultiplier();
+    if (mult === 1) return { ...base };
+    return {
+      ...base,
+      hp: Math.round(base.hp * mult),
+      maxHp: Math.round(base.hp * mult),
+      atk: Math.round(base.atk * mult),
+      def: Math.round(base.def * mult)
+    };
   }
 
   create() {
     this.add.rectangle(400, 300, 800, 600, 0x111122);
 
-    const title = this.isBossCombat ? `BOSS : ${UNITS_DATABASE[this.chapter.bossUnit].name}` : 'COMBAT DE ZONE';
-    this.add.text(300, 30, title, { fontSize: '22px', color: '#ff4444', fontStyle: 'bold' }).setOrigin(0.5);
+    const modeTag = this.nightmare ? ' 💀 CAUCHEMAR' : this.mode === 'tower' ? ` — Étage ${this.chapter.floor}` : this.mode === 'daily' ? ' — Donjon Quotidien' : '';
+    const title = this.isBossCombat ? `BOSS : ${UNITS_DATABASE[this.chapter.bossUnit].name}${modeTag}` : `COMBAT DE ZONE${modeTag}`;
+    this.add.text(300, 30, title, { fontSize: '18px', color: this.nightmare ? '#ff2244' : '#ff4444', fontStyle: 'bold' }).setOrigin(0.5);
 
     this.speedBtn = this.add.rectangle(520, 30, 110, 32, 0x333355).setInteractive({ useHandCursor: true }).setStrokeStyle(1, 0xffffff);
     this.speedText = this.add.text(520, 30, '⚡ Vitesse: x1', { fontSize: '12px', color: '#ffffff', fontStyle: 'bold' }).setOrigin(0.5);
@@ -77,17 +107,17 @@ export class BattleScene extends Phaser.Scene {
       return;
     }
 
-    // --- Équipe ennemie (les ennemis utilisent leurs stats de base) ---
+    // --- Équipe ennemie (échelle selon la Tour ou le Mode Cauchemar) ---
     if (this.isBossCombat) {
       const minionKey = Phaser.Utils.Array.GetRandom(this.chapter.enemyPool);
       this.enemyTeam = [
-        { ...UNITS_DATABASE[minionKey], side: 'enemy', position: 'front' },
-        { ...UNITS_DATABASE[minionKey], side: 'enemy', position: 'front' },
-        { ...UNITS_DATABASE[this.chapter.bossUnit], side: 'enemy', position: 'back' }
+        { ...this.scaleEnemy(UNITS_DATABASE[minionKey]), side: 'enemy', position: 'front' },
+        { ...this.scaleEnemy(UNITS_DATABASE[minionKey]), side: 'enemy', position: 'front' },
+        { ...this.scaleEnemy(UNITS_DATABASE[this.chapter.bossUnit]), side: 'enemy', position: 'back' }
       ];
     } else {
       this.enemyTeam = [1, 2, 3].map((_, index) => ({
-        ...UNITS_DATABASE[Phaser.Utils.Array.GetRandom(this.chapter.enemyPool)],
+        ...this.scaleEnemy(UNITS_DATABASE[Phaser.Utils.Array.GetRandom(this.chapter.enemyPool)]),
         side: 'enemy',
         position: index < FRONT_ROW_SIZE ? 'front' : 'back'
       }));
@@ -135,12 +165,26 @@ export class BattleScene extends Phaser.Scene {
     });
   }
 
-  /** Cible en priorité un adversaire en Avant ; l'Arrière n'est visé que si l'Avant est vide. */
-  pickPriorityTarget(team) {
+  /**
+   * Cible en priorité un adversaire en Avant ; l'Arrière n'est visé que si l'Avant est vide.
+   * Côté ennemi, le ciblage est intelligent : achève une cible sous 30% PV si possible,
+   * sinon vise la cible la plus fragile (DEF la plus faible) du groupe prioritaire.
+   * Côté joueur, le ciblage reste aléatoire dans le groupe prioritaire (contrôle au joueur).
+   */
+  pickPriorityTarget(team, attacker) {
     const alive = team.filter(u => u.hp > 0);
     if (alive.length === 0) return null;
     const front = alive.filter(u => u.position === 'front');
     const pool = front.length > 0 ? front : alive;
+
+    if (attacker && attacker.side === 'enemy') {
+      const nearDeath = pool.filter(u => u.hp / u.maxHp <= 0.3);
+      if (nearDeath.length > 0) {
+        return nearDeath.reduce((weakest, u) => (u.hp < weakest.hp ? u : weakest));
+      }
+      return pool.reduce((frailest, u) => (u.def < frailest.def ? u : frailest));
+    }
+
     return Phaser.Utils.Array.GetRandom(pool);
   }
 
@@ -171,7 +215,7 @@ export class BattleScene extends Phaser.Scene {
         if (triggerSkill) {
           await this.executeSkill(attacker, allies, targets);
         } else {
-          await this.executeAttack(attacker, this.pickPriorityTarget(targets));
+          await this.executeAttack(attacker, this.pickPriorityTarget(targets, attacker));
         }
 
         // --- Set Violent : 22% de rejouer immédiatement ---
@@ -254,7 +298,7 @@ export class BattleScene extends Phaser.Scene {
         scaleX: 1.15, scaleY: 1.15, duration: 150 / this.gameSpeed, yoyo: true,
         onComplete: () => {
           if (skill.type === 'damage_single') {
-            const target = this.pickPriorityTarget(targets);
+            const target = this.pickPriorityTarget(targets, attacker);
             const elementMult = getElementMultiplier(attacker.element, target.element);
             let rawDamage = Math.max(20, Math.round(((attacker.atk * skill.multiplier) - (target.def / 2)) * elementMult));
             const damage = this.applyDamage(target, rawDamage);
@@ -309,7 +353,11 @@ export class BattleScene extends Phaser.Scene {
 
   /** Distribue l'XP aux unités survivantes et gère les montées de niveau. */
   grantExperience() {
-    const xpGain = xpRewardForBattle(this.chapter, this.isBossCombat);
+    let xpGain = this.chapter.rewardXpBonus !== undefined
+      ? this.chapter.rewardXpBonus
+      : xpRewardForBattle(this.chapter, this.isBossCombat);
+    if (this.nightmare) xpGain = Math.round(xpGain * NIGHTMARE_XP_MULTIPLIER);
+
     const survivorIds = this.playerTeam.filter(u => u.hp > 0).map(u => u.instanceId);
 
     this.deckInstances.forEach(instance => {
@@ -327,7 +375,9 @@ export class BattleScene extends Phaser.Scene {
     this.addLog(`⭐ +${xpGain} XP pour les survivants`);
 
     // --- XP de compte (progression globale, augmente la stamina max) ---
-    const accountGain = accountXpRewardForBattle(this.chapter, this.isBossCombat);
+    const accountGain = this.chapter.rewardXpBonus !== undefined
+      ? Math.round(this.chapter.rewardXpBonus * 0.6)
+      : accountXpRewardForBattle(this.chapter, this.isBossCombat);
     const accountLevelsGained = addAccountXP(PLAYER_DATA, accountGain);
 
     if (accountLevelsGained > 0) {
@@ -348,13 +398,48 @@ export class BattleScene extends Phaser.Scene {
     return echo;
   }
 
+  /** Tire les objets bonus du Reliquaire (Poussière exclue : obtenue en désenchantant). Journalise chaque obtention. */
+  rollBonusItems() {
+    if (this.isBossCombat) {
+      if (Math.random() < 0.08) { addItem('reforge_stone', 1); this.addLog('💎 Objet obtenu : Pierre de Reforge'); }
+      if (Math.random() < 0.05) { addItem('lock_seal', 1); this.addLog('🔒 Objet obtenu : Sceau de Verrouillage'); }
+      if (Math.random() < 0.06) { addItem('pact_ticket', 1); this.addLog('🎫 Objet obtenu : Billet de Pacte'); }
+      if (Math.random() < 0.10) { addItem('xp_tome', 1); this.addLog("📘 Objet obtenu : Tome d'XP"); }
+      if (Math.random() < 0.04) { addItem('stamina_elixir', 1); this.addLog('🧪 Objet obtenu : Élixir de Stamina'); }
+    }
+
+    // --- Essence de Set : liée au chapitre visité (mode Aventure uniquement) ---
+    if (this.mode === 'chapter' && this.chapter.echoSet && Math.random() < 0.15) {
+      addItem(getSetEssenceKey(this.chapter.echoSet), 1);
+      this.addLog(`🔷 Objet obtenu : Essence ${ECHO_SETS[this.chapter.echoSet].name}`);
+    }
+
+    // --- Fragments de Héros : boss de la Tour ou du Mode Cauchemar ---
+    if (this.isBossCombat && (this.mode === 'tower' || this.nightmare) && FRAGMENT_ELIGIBLE_KEYS.length > 0 && Math.random() < 0.12) {
+      const heroKey = Phaser.Utils.Array.GetRandom(FRAGMENT_ELIGIBLE_KEYS);
+      const qty = 1 + Math.floor(Math.random() * 3);
+      addHeroFragments(heroKey, qty);
+      this.addLog(`🧩 Objet obtenu : ${qty} Fragment(s) de ${UNITS_DATABASE[heroKey].name}`);
+    }
+
+    // --- Clé de Coffre : combat de zone classique de l'Aventure ---
+    if (this.mode === 'chapter' && !this.isBossCombat && Math.random() < 0.12) {
+      addItem('loot_chest_key', 1);
+      this.addLog('🗝️ Objet obtenu : Clé de Coffre');
+    }
+  }
+
   endBattle(playerWon) {
+    this.lastPlayerWon = playerWon;
+
     if (playerWon) {
-      const reward = this.isBossCombat ? this.chapter.rewardGold : 50;
+      let reward = (this.mode !== 'chapter' || this.isBossCombat) ? this.chapter.rewardGold : 50;
+      if (this.nightmare) reward = Math.round(reward * NIGHTMARE_GOLD_MULTIPLIER);
       PLAYER_DATA.gold += reward;
 
       const xpGain = this.grantExperience();
       const droppedEcho = this.rollEchoDrop();
+      this.rollBonusItems();
 
       let victoryMsg = `VICTOIRE ! +${reward} Or, +${xpGain} XP.`;
 
@@ -364,7 +449,7 @@ export class BattleScene extends Phaser.Scene {
         this.addLog(`✨ Écho obtenu : Slot ${droppedEcho.slotId} — ${droppedEcho.star}★ ${rarityLabel}`);
       }
 
-      if (this.isBossCombat) {
+      if (this.mode === 'chapter' && this.isBossCombat) {
         const isFinalChapter = this.chapter.id >= CHAPTERS_DATABASE.length;
         const reachedOrPastFrontier = this.chapter.id >= PLAYER_DATA.unlockedChapter;
 
@@ -374,17 +459,25 @@ export class BattleScene extends Phaser.Scene {
           PLAYER_DATA.currentTileId = 0;
           victoryMsg += ' Nouveau chapitre débloqué !';
         } else if (isFinalChapter) {
+          PLAYER_DATA.unlockedChapter = Math.max(PLAYER_DATA.unlockedChapter, CHAPTERS_DATABASE.length + 1);
           PLAYER_DATA.currentTileId = this.chapter.tiles.length - 1;
-          victoryMsg += ' Jeu terminé !';
+          victoryMsg += this.nightmare ? ' Mode Cauchemar en cours !' : ' Tous les chapitres terminés — le Mode Cauchemar est débloqué !';
         } else {
           PLAYER_DATA.currentTileId = 0;
         }
+      }
 
-        // --- Drop de boss : chance d'obtenir un Éclat de Pacte Supérieur ---
-        const SHARD_DROP_CHANCE = 0.2;
-        if (Math.random() < SHARD_DROP_CHANCE) {
+      if (this.mode === 'tower' && this.chapter.floor > PLAYER_DATA.towerHighestFloor) {
+        PLAYER_DATA.towerHighestFloor = this.chapter.floor;
+        victoryMsg += ` Étage ${this.chapter.floor} franchi !`;
+      }
+
+      // --- Drop d'Éclat de Pacte Supérieur, sur tout combat de boss (chapitre, Donjon, Tour) ---
+      if (this.isBossCombat) {
+        const shardDropChance = this.nightmare ? 0.35 : 0.2;
+        if (Math.random() < shardDropChance) {
           PLAYER_DATA.summonShards = (PLAYER_DATA.summonShards || 0) + 1;
-          victoryMsg += ` 🌠 Le boss a lâché un Éclat de Pacte Supérieur !`;
+          victoryMsg += ` 🌠 Éclat de Pacte Supérieur obtenu !`;
           this.addLog('🌠 Objet obtenu : Éclat de Pacte Supérieur');
         }
       }
@@ -402,13 +495,57 @@ export class BattleScene extends Phaser.Scene {
     });
   }
 
-  /** Affiche les 3 options de fin de combat : Rejouer, Continuer, Choix du chapitre. */
+  /** Affiche les options de fin de combat, adaptées au mode (Aventure, Donjon, Tour). */
   showEndButtons() {
     const transitionTo = (callback) => {
       this.cameras.main.fadeOut(400, 0, 0, 0);
       this.time.delayedCall(400, callback);
     };
 
+    const y = 560;
+    const makeBtn = (x, width, label, color, onClick) => {
+      const btn = this.add.rectangle(x, y, width, 40, color).setStrokeStyle(2, 0xffffff).setInteractive({ useHandCursor: true });
+      this.add.text(x, y, label, { fontSize: '12px', color: '#ffffff', fontStyle: 'bold' }).setOrigin(0.5);
+      btn.on('pointerover', () => btn.setAlpha(0.85));
+      btn.on('pointerout', () => btn.setAlpha(1));
+      btn.on('pointerdown', onClick);
+      return btn;
+    };
+
+    if (this.mode === 'daily') {
+      makeBtn(290, 220, '▶ Retour', 0x228844, () => transitionTo(() => {
+        this.scene.start('ChapterSelectScene');
+      }));
+      return;
+    }
+
+    if (this.mode === 'tower') {
+      // --- Repère d'étage : pour ne jamais perdre le fil de sa progression ---
+      this.add.text(290, 525, `🗼 Étage ${this.chapter.floor} / ${TOWER_MAX_FLOOR}`, {
+        fontSize: '12px', color: '#88aaff', fontStyle: 'bold'
+      }).setOrigin(0.5);
+
+      const canAdvance = this.lastPlayerWon && this.chapter.floor < TOWER_MAX_FLOOR && this.chapter.floor <= PLAYER_DATA.towerHighestFloor;
+      if (canAdvance) {
+        makeBtn(150, 260, '⬆ Étage Suivant', 0x228844, () => transitionTo(() => {
+          this.scene.start('BattleScene', {
+            mode: 'tower',
+            isBoss: getTowerFloorData(this.chapter.floor + 1).isBossFloor,
+            chapter: getTowerFloorData(this.chapter.floor + 1)
+          });
+        }));
+        makeBtn(430, 260, '🏛 Retour à la Tour', 0x557799, () => transitionTo(() => {
+          this.scene.start('TowerScene');
+        }));
+      } else {
+        makeBtn(290, 260, '🏛 Retour à la Tour', 0x557799, () => transitionTo(() => {
+          this.scene.start('TowerScene');
+        }));
+      }
+      return;
+    }
+
+    // --- Mode 'chapter' (Aventure / Mode Cauchemar) : comportement d'origine ---
     const goContinue = () => transitionTo(() => {
       if (this.isBossCombat) {
         this.scene.start('ChapterSelectScene', { actId: this.chapter.actId });
@@ -425,18 +562,8 @@ export class BattleScene extends Phaser.Scene {
       this.scene.start('ChapterSelectScene', { actId: this.chapter.actId });
     });
 
-    const y = 560;
-    const makeBtn = (x, label, color, onClick) => {
-      const btn = this.add.rectangle(x, y, 150, 40, color).setStrokeStyle(2, 0xffffff).setInteractive({ useHandCursor: true });
-      this.add.text(x, y, label, { fontSize: '13px', color: '#ffffff', fontStyle: 'bold' }).setOrigin(0.5);
-      btn.on('pointerover', () => btn.setAlpha(0.85));
-      btn.on('pointerout', () => btn.setAlpha(1));
-      btn.on('pointerdown', onClick);
-      return btn;
-    };
-
-    makeBtn(110, '🔁 Rejouer', 0x555577, goReplay);
-    makeBtn(290, '▶ Continuer', 0x228844, goContinue);
-    makeBtn(470, '📜 Chapitres', 0x557799, goChapterSelect);
+    makeBtn(95, 150, '🔁 Rejouer', 0x555577, goReplay);
+    makeBtn(290, 170, '▶ Continuer', 0x228844, goContinue);
+    makeBtn(485, 150, '📜 Chapitres', 0x557799, goChapterSelect);
   }
 }

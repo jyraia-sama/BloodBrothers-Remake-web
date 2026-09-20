@@ -205,3 +205,85 @@ export const ACTS_DATABASE = ACTS_CONFIG.map(act => {
 
 // Liste à plat de tous les chapitres (recherche directe par id global)
 export const CHAPTERS_DATABASE = ACTS_DATABASE.flatMap(act => act.chapters);
+
+// ============================================================
+//  BOSS D'ACTE, DANS L'ORDRE (réutilisés par la Tour Sans Fin)
+// ============================================================
+export const ACT_BOSS_SEQUENCE = ACTS_CONFIG.map(act => act.bossUnit);
+
+// Unités réservées aux combats (non invocables par le joueur, non éligibles aux fragments)
+export const ENEMY_ONLY_KEYS = [
+  'boss', 'squelette', 'demon_inf',
+  'gobelin_maraudeur', 'loup_affame', 'rat_corrompu',
+  'zombie_enrage', 'brigand_cagoule', 'araignee_geante',
+  'golem_fissure', 'harpie_sanglante', 'ombre_rampante',
+  'spectre_vengeur', 'troll_cavernes', 'cyclope_furieux',
+  'demon_mineur', 'liche_novice', 'gargouille_jade',
+  'chevalier_dechu', 'hydre_bicephale', 'vouivre_ecarlate',
+  'gardien_foret', 'seigneur_donjon'
+];
+
+/** Clés des héros SSR/UR invocables, éligibles aux Fragments de Héros. */
+export const FRAGMENT_ELIGIBLE_KEYS = Object.keys(UNITS_DATABASE).filter(k =>
+  !ENEMY_ONLY_KEYS.includes(k) && (UNITS_DATABASE[k].rarity === 'SSR' || UNITS_DATABASE[k].rarity === 'UR')
+);
+
+// ============================================================
+//  DONJON QUOTIDIEN
+//  Combat unique, gratuit en stamina, limité en tentatives/jour.
+//  Le défi est le même pour tout le monde le même jour (seed).
+// ============================================================
+function dailySeed() {
+  const now = new Date();
+  return now.getFullYear() * 372 + now.getMonth() * 31 + now.getDate();
+}
+
+export function buildDailyDungeonChapter() {
+  const seed = dailySeed();
+  const tierIndex = seed % ENEMY_TIER_POOLS.length;
+  const bossIndex = seed % ACT_BOSS_SEQUENCE.length;
+
+  return {
+    id: 'daily',
+    isSpecial: true,
+    title: 'Donjon Quotidien',
+    bgColor: 0x221a33,
+    enemyPool: ENEMY_TIER_POOLS[tierIndex],
+    bossUnit: ACT_BOSS_SEQUENCE[bossIndex],
+    rewardGold: 250 + tierIndex * 120,
+    rewardXpBonus: 150 + tierIndex * 60
+  };
+}
+
+// ============================================================
+//  TOUR SANS FIN — 100 étages, un combat chacun.
+//  Le palier d'ennemis avance tous les ~17 étages ; la
+//  difficulté à l'intérieur d'un palier grimpe en continu via
+//  un multiplicateur de statistiques par étage.
+// ============================================================
+export const TOWER_MAX_FLOOR = 100;
+
+export function getTowerFloorData(floor) {
+  const clampedFloor = Math.max(1, Math.min(TOWER_MAX_FLOOR, floor));
+  const floorsPerTier = Math.ceil(TOWER_MAX_FLOOR / ENEMY_TIER_POOLS.length);
+  const tierIndex = Math.min(ENEMY_TIER_POOLS.length - 1, Math.floor((clampedFloor - 1) / floorsPerTier));
+  const bossIndex = Math.min(ACT_BOSS_SEQUENCE.length - 1, Math.floor((clampedFloor - 1) / floorsPerTier));
+
+  // Tous les 10 étages : combat de boss (avec sbires) ; sinon combat de zone classique.
+  const isBossFloor = clampedFloor % 10 === 0;
+  const statMultiplier = 1 + (clampedFloor - 1) * 0.035;
+
+  return {
+    id: `tower-${clampedFloor}`,
+    isSpecial: true,
+    floor: clampedFloor,
+    title: `Tour Sans Fin — Étage ${clampedFloor}`,
+    bgColor: 0x1a1a2e,
+    enemyPool: ENEMY_TIER_POOLS[tierIndex],
+    bossUnit: ACT_BOSS_SEQUENCE[bossIndex],
+    isBossFloor,
+    statMultiplier,
+    rewardGold: 60 + clampedFloor * 18,
+    rewardXpBonus: 25 + clampedFloor * 9
+  };
+}

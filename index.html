@@ -3,7 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Blood Brothers Remake</title>
+    <title>Brothers of Legacy: Tears and Blood</title>
+
+    <!-- PWA : installable sur PC et mobile -->
+    <link rel="manifest" href="./manifest.json">
+    <meta name="theme-color" content="#8a0f1a">
+    <link rel="icon" type="image/png" sizes="64x64" href="./src/assets/pwa/favicon-64.png">
+    <link rel="apple-touch-icon" href="./src/assets/pwa/icon-192.png">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Brothers of Legacy">
+
     <script src="https://cdn.jsdelivr.net/npm/phaser@3/dist/phaser.min.js"></script>
     <style>
         html, body {
@@ -20,6 +30,16 @@
     </style>
 </head>
 <body>
-    <script type="module" src="./src\main.js"></script>
+    <script type="module" src="./src/main.js"></script>
+
+    <script>
+        // Enregistrement du service worker (mise en cache + hors-ligne).
+        // Échoue silencieusement si non supporté (ex. ouverture en local sans serveur) — sans impact sur le jeu.
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./service-worker.js').catch(() => {});
+            });
+        }
+    </script>
 </body>
 </html>

@@ -7,6 +7,9 @@ import { DeckScene } from './scenes/DeckScene.js';
 import { GachaScene } from './scenes/GachaScene.js';
 import { FusionScene } from './scenes/FusionScene.js'; // <-- Ajout de l'import
 import { EchoScene } from './scenes/EchoScene.js';
+import { DailyDungeonScene } from './scenes/DailyDungeonScene.js';
+import { TowerScene } from './scenes/TowerScene.js';
+import { ReliquaryScene } from './scenes/ReliquaryScene.js';
 
 // Résolution interne du canvas : au minimum x2, davantage sur les écrans
 // haute densité (Retina, 4K...) pour éviter le flou dû à l'agrandissement CSS.
@@ -26,7 +29,7 @@ const config = {
     antialias: true,
     roundPixels: false
   },
-  scene: [MenuScene, HeroSelectScene, ChapterSelectScene, DeckScene, GachaScene, FusionScene, EchoScene, MapScene, BattleScene] // <-- Ajout dans le tableau
+  scene: [MenuScene, HeroSelectScene, ChapterSelectScene, DeckScene, GachaScene, FusionScene, EchoScene, DailyDungeonScene, TowerScene, ReliquaryScene, MapScene, BattleScene] // <-- Ajout dans le tableau
 };
 
 new Phaser.Game(config);

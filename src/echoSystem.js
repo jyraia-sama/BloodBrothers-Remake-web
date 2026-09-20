@@ -127,7 +127,10 @@ export function upgradeEcho(echo) {
   if (echo.level >= MAX_ECHO_LEVEL) return { success: false, reason: 'max' };
 
   const rate = getUpgradeSuccessRate(echo.level);
-  if (Math.random() >= rate) return { success: false, reason: 'fail' };
+  if (Math.random() >= rate) {
+    echo.substats.forEach(s => { s.locked = false; }); // le Sceau protège une seule tentative
+    return { success: false, reason: 'fail' };
+  }
 
   echo.level += 1;
   echo.mainStatValue = getMainStatValue(echo.mainStatType, echo.star, echo.level);
@@ -145,14 +148,25 @@ export function upgradeEcho(echo) {
       echo.substats.push({ type, value });
       substatEvent = { kind: 'new', type, value };
     } else {
-      const idx = Math.floor(Math.random() * echo.substats.length);
+      const unlockedIndices = echo.substats.map((s, i) => i).filter(i => !echo.substats[i].locked);
+      const pool = unlockedIndices.length > 0 ? unlockedIndices : echo.substats.map((_, i) => i);
+      const idx = pool[Math.floor(Math.random() * pool.length)];
       const added = rollSubstatValue(echo.substats[idx].type, echo.star);
       echo.substats[idx].value = +(echo.substats[idx].value + added).toFixed(1);
       substatEvent = { kind: 'boost', type: echo.substats[idx].type, value: added };
     }
   }
 
+  echo.substats.forEach(s => { s.locked = false; }); // consommé, qu'un palier ait eu lieu ou non
   return { success: true, level: echo.level, substatEvent };
+}
+
+/** Reroll (Pierre de Reforge) la valeur d'une substat précise, même formule que lors d'un tirage normal. */
+export function rerollSubstat(echo, substatIndex) {
+  const substat = echo.substats[substatIndex];
+  if (!substat) return null;
+  substat.value = rollSubstatValue(substat.type, echo.star);
+  return substat;
 }
 
 // --- Bonus de statistiques ---
@@ -254,4 +268,12 @@ const SELL_RARITY_MULTIPLIER = { normal: 1, magique: 1.5, rare: 2.5, heroique: 4
 export function getEchoSellPrice(echo) {
   const rarityMult = SELL_RARITY_MULTIPLIER[echo.rarityKey] || 1;
   return Math.round(15 * echo.star * rarityMult * (1 + echo.level * 0.15));
+}
+
+// --- Désenchantement : Poussière d'Écho obtenue en vendant ---
+const DUST_RARITY_VALUE = { normal: 2, magique: 3, rare: 5, heroique: 8, legendaire: 12 };
+
+export function getEchoDustValue(echo) {
+  const base = DUST_RARITY_VALUE[echo.rarityKey] || 2;
+  return Math.round(base * echo.star * (1 + echo.level * 0.1));
 }

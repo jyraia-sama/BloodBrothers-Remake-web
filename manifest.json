@@ -1,0 +1,31 @@
+{
+  "name": "Brothers of Legacy: Tears and Blood",
+  "short_name": "Brothers of Legacy",
+  "description": "RPG tactique au tour par tour : constituez votre équipe, explorez l'Aventure, invoquez des héros et équipez des Échos Sanguins.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "landscape",
+  "background_color": "#111116",
+  "theme_color": "#8a0f1a",
+  "icons": [
+    {
+      "src": "./src/assets/pwa/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./src/assets/pwa/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./src/assets/pwa/icon-512-maskable.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

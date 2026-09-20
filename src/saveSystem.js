@@ -1,4 +1,5 @@
 import { createUnitInstance, maxStaminaForAccountLevel } from './levelSystem.js';
+import { CHAPTERS_DATABASE } from './database.js';
 
 const SAVE_KEY = 'BLOOD_BROTHERS_SAVE_V2';
 const STAMINA_REGEN_INTERVAL = 5 * 60 * 1000;
@@ -7,6 +8,18 @@ const STAMINA_REGEN_INTERVAL = 5 * 60 * 1000;
 // Une sauvegarde d'une version antérieure voit sa progression de chapitre
 // réinitialisée (son or, ses cartes et ses Échos sont conservés).
 const CONTENT_VERSION = 2;
+
+/** Horodatage du prochain minuit local (reset du Donjon Quotidien). */
+function getNextMidnight() {
+  const next = new Date();
+  next.setHours(24, 0, 0, 0);
+  return next.getTime();
+}
+
+/** Horodatage dans 7 jours (reset hebdomadaire de la Tour Sans Fin). */
+function getNextWeeklyReset() {
+  return Date.now() + 7 * 24 * 60 * 60 * 1000;
+}
 
 function buildDefaultData() {
   const starters = ['archer', 'mage', 'clerc'].map(key => createUnitInstance(key));
@@ -26,7 +39,14 @@ function buildDefaultData() {
     inventory: starters,                          // tableau d'instances
     deck: starters.map(inst => inst.instanceId),  // tableau d'instanceId
     echoInventory: [],                            // tableau d'Échos Sanguins possédés
-    contentVersion: CONTENT_VERSION
+    items: {},                                     // { itemKey: quantite } - Le Reliquaire
+    heroFragments: {},                             // { unitKey: quantite } - fragments de héros SSR/UR
+    contentVersion: CONTENT_VERSION,
+    dailyDungeonRunsLeft: 3,
+    dailyDungeonResetAt: getNextMidnight(),
+    towerHighestFloor: 0,
+    towerResetAt: getNextWeeklyReset(),
+    nightmareMode: false
   };
 }
 
@@ -47,6 +67,37 @@ export function loadGameData() {
   }
   if (!Array.isArray(data.echoInventory)) {
     data.echoInventory = [];
+  }
+  if (!data.items || typeof data.items !== 'object') {
+    data.items = {};
+  }
+  if (!data.heroFragments || typeof data.heroFragments !== 'object') {
+    data.heroFragments = {};
+  }
+  if (data.dailyDungeonRunsLeft === undefined) {
+    data.dailyDungeonRunsLeft = 3;
+    data.dailyDungeonResetAt = getNextMidnight();
+  }
+  if (data.towerHighestFloor === undefined) {
+    data.towerHighestFloor = 0;
+  }
+  if (data.towerResetAt === undefined) {
+    data.towerResetAt = getNextWeeklyReset();
+  }
+  if (data.nightmareMode === undefined) {
+    data.nightmareMode = false;
+  }
+
+  // --- Reset quotidien du Donjon Quotidien ---
+  if (Date.now() >= data.dailyDungeonResetAt) {
+    data.dailyDungeonRunsLeft = 3;
+    data.dailyDungeonResetAt = getNextMidnight();
+  }
+
+  // --- Reset hebdomadaire de la Tour Sans Fin ---
+  if (Date.now() >= data.towerResetAt) {
+    data.towerHighestFloor = 0;
+    data.towerResetAt = getNextWeeklyReset();
   }
 
   // --- Migration : refonte de l'Aventure (Actes/Chapitres liés aux Échos) ---
@@ -158,6 +209,47 @@ export function resetGameData() {
   saveGameData();
 }
 
+/** Sérialise la sauvegarde actuelle en texte JSON, pour export. */
+export function exportSaveData() {
+  return JSON.stringify(PLAYER_DATA, null, 2);
+}
+
+/**
+ * Importe une sauvegarde depuis une chaîne JSON (remplace entièrement la
+ * partie actuelle après validation). Réutilise toute la logique de
+ * migration de loadGameData(), pour rester compatible avec d'anciens
+ * exports. Retourne { success: true } ou { success: false, error }.
+ */
+export function importSaveData(jsonString) {
+  let parsed;
+  try {
+    parsed = JSON.parse(jsonString);
+  } catch (e) {
+    return { success: false, error: 'Fichier JSON invalide.' };
+  }
+
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    return { success: false, error: 'Format de sauvegarde invalide.' };
+  }
+
+  const requiredKeys = ['inventory', 'deck', 'gold'];
+  const missing = requiredKeys.filter(k => !(k in parsed));
+  if (missing.length > 0) {
+    return { success: false, error: `Fichier incomplet (champs manquants : ${missing.join(', ')}).` };
+  }
+
+  // Écrit le brut dans le stockage puis relit via loadGameData() pour
+  // bénéficier de toutes les migrations/valeurs par défaut existantes.
+  localStorage.setItem(SAVE_KEY, JSON.stringify(parsed));
+  const normalized = loadGameData();
+
+  Object.keys(PLAYER_DATA).forEach(key => delete PLAYER_DATA[key]);
+  Object.assign(PLAYER_DATA, normalized);
+  saveGameData();
+
+  return { success: true };
+}
+
 /**
  * Ajoute une unite a l'inventaire sous forme d'instance et retourne celle-ci.
  * Si `equip` est vrai, l'unite est aussi placee dans le deck (si place libre).
@@ -178,6 +270,60 @@ export function grantUnit(unitKey, equip = false) {
 /** Retrouve une instance possedee par son instanceId. */
 export function getInstanceById(instanceId) {
   return PLAYER_DATA.inventory.find(inst => inst.instanceId === instanceId);
+}
+
+/** Vrai une fois les 42 chapitres de l'Aventure terminés (débloque le Mode Cauchemar). */
+export function isAllChaptersCleared() {
+  return PLAYER_DATA.unlockedChapter > CHAPTERS_DATABASE.length;
+}
+
+// --- Le Reliquaire : objets et fragments ---
+
+export function getItemCount(itemKey) {
+  return PLAYER_DATA.items[itemKey] || 0;
+}
+
+export function addItem(itemKey, qty = 1) {
+  PLAYER_DATA.items[itemKey] = (PLAYER_DATA.items[itemKey] || 0) + qty;
+}
+
+/** Dépense qty d'un objet si possible. Retourne false sans rien changer si insuffisant. */
+export function spendItem(itemKey, qty = 1) {
+  if (getItemCount(itemKey) < qty) return false;
+  PLAYER_DATA.items[itemKey] -= qty;
+  return true;
+}
+
+export function getHeroFragments(unitKey) {
+  return PLAYER_DATA.heroFragments[unitKey] || 0;
+}
+
+export function addHeroFragments(unitKey, qty = 1) {
+  PLAYER_DATA.heroFragments[unitKey] = (PLAYER_DATA.heroFragments[unitKey] || 0) + qty;
+}
+
+export function spendHeroFragments(unitKey, qty) {
+  if (getHeroFragments(unitKey) < qty) return false;
+  PLAYER_DATA.heroFragments[unitKey] -= qty;
+  return true;
+}
+
+/** Temps restant (ms) avant le prochain reset du Donjon Quotidien. */
+export function getDailyDungeonTimeLeft() {
+  return Math.max(0, PLAYER_DATA.dailyDungeonResetAt - Date.now());
+}
+
+/** Temps restant (ms) avant le prochain reset hebdomadaire de la Tour Sans Fin. */
+export function getTowerResetTimeLeft() {
+  return Math.max(0, PLAYER_DATA.towerResetAt - Date.now());
+}
+
+/** Consomme une tentative du Donjon Quotidien. Retourne false si aucune n'est disponible. */
+export function consumeDailyDungeonRun() {
+  if (PLAYER_DATA.dailyDungeonRunsLeft <= 0) return false;
+  PLAYER_DATA.dailyDungeonRunsLeft -= 1;
+  saveGameData();
+  return true;
 }
 
 /** Les instances actuellement equipees dans le deck, dans l'ordre. */

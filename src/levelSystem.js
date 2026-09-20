@@ -132,11 +132,11 @@ export function accountXpForNextLevel(level) {
 
 /**
  * Stamina maximale pour un niveau de compte donné.
- * +1 stamina tous les 2 niveaux : 10 au niveau 1, 24 au niveau 30.
+ * +2 stamina par niveau : 10 au niveau 1, jusqu'à 68 au niveau 30.
  */
 export function maxStaminaForAccountLevel(level) {
   const clamped = Math.max(1, Math.min(MAX_ACCOUNT_LEVEL, level));
-  return BASE_MAX_STAMINA + Math.floor((clamped - 1) / 2);
+  return BASE_MAX_STAMINA + (clamped - 1) * 2;
 }
 
 /**
