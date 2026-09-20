@@ -32,4 +32,17 @@ const config = {
   scene: [MenuScene, HeroSelectScene, ChapterSelectScene, DeckScene, GachaScene, FusionScene, EchoScene, DailyDungeonScene, TowerScene, ReliquaryScene, MapScene, BattleScene] // <-- Ajout dans le tableau
 };
 
-new Phaser.Game(config);
+const game = new Phaser.Game(config);
+
+// --- Correctif mobile : sur certains navigateurs (Chrome Android notamment),
+// Phaser calcule sa mise à l'échelle/son centrage AVANT que la barre d'adresse
+// et les barres système aient fini de se stabiliser, ce qui laisse le jeu
+// décentré et/ou trop petit. On force un recalcul une fois que tout est stable,
+// et à chaque rotation ou redimensionnement de la fenêtre.
+function refreshGameScale() {
+  game.scale.refresh();
+}
+
+window.addEventListener('resize', refreshGameScale);
+window.addEventListener('orientationchange', () => setTimeout(refreshGameScale, 250));
+setTimeout(refreshGameScale, 350);

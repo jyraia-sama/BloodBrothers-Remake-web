@@ -7,7 +7,7 @@
 //  à jour du cache au prochain déploiement.
 // ============================================================
 
-const CACHE_VERSION = 'bol-cache-v2';
+const CACHE_VERSION = 'bol-cache-v4';
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();
